@@ -1,0 +1,5 @@
+content	zotero-edtechhub				content/
+locale	zotero-edtechhub	en-US		locale/en-US/
+skin	zotero-edtechhub	default		skin/
+
+overlay	chrome://zotero/content/zoteroPane.xul	chrome://zotero-edtechhub/content/overlay.xul
