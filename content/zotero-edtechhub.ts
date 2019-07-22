@@ -30,10 +30,12 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
     let user = Zotero.Prefs.get('sync.server.username')
     user = user ? `${user}, ` : ''
 
+    const libraryKey = Zotero.URI.getLibraryPath(item.libraryID || Zotero.Libraries.userLibraryID).replace(/.*\//, '')
+
     let body = `<div><b>Item history (${user}${new Date})</b></div>\n`
     body += `<pre>${Zotero.Utilities.text2html(await deferred.promise)}</pre>\n`
     body += '<div><table>\n'
-    body += `<tr><td>group:</td><td>${item.libraryID || Zotero.Libraries.userLibraryID}</td></tr>\n`
+    body += `<tr><td>group:</td><td>${libraryKey}</td></tr>\n`
     body += `<tr><td>itemKey:</td><td>${item.key}</td></tr>\n`
     body += `<tr><td>itemKeyOld:</td><td>${otherItems.map(i => i.key).join(', ')}</td></tr>\n`
     body += '</table></div>\n'
