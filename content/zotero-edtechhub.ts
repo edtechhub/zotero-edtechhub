@@ -27,7 +27,10 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
     })
     translation.translate()
 
-    let body = `<div><b>Item history (${new Date})</b></div>\n`
+    let user = Zotero.Prefs.get('sync.server.username')
+    user = user ? `${user}, ` : ''
+
+    let body = `<div><b>Item history (${user}${new Date})</b></div>\n`
     body += `<pre>${Zotero.Utilities.text2html(await deferred.promise)}</pre>\n`
     body += '<div><table>\n'
     body += `<tr><td>group:</td><td>${item.libraryID || Zotero.Libraries.userLibraryID}</td></tr>\n`
