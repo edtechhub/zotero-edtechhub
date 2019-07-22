@@ -27,10 +27,13 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
     })
     translation.translate()
 
-    let body = await deferred.promise
-    body += '\n\n'
-    body += 'oldItem: ' + otherItems.map(i => `${i.id}`).join(', ')
-    body = `<pre>${Zotero.Utilities.text2html(body)}</pre>`
+    let body = `<div><b>Item history (${new Date})</b></div>\n`
+    body += `<pre>${Zotero.Utilities.text2html(await deferred.promise)}</pre>\n`
+    body += '<div><table>\n'
+    body += `<tr><td>group:</td><td>${item.libraryID || Zotero.Libraries.userLibraryID}</td></tr>\n`
+    body += `<tr><td>itemKey:</td><td>${item.key}</td></tr>\n`
+    body += `<tr><td>itemKeyOld:</td><td>${otherItems.map(i => i.key).join(', ')}</td></tr>\n`
+    body += '</table></div>\n'
 
     const note = new Zotero.Item('note')
     note.libraryID = item.libraryID
