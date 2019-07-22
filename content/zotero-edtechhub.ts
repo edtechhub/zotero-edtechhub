@@ -27,8 +27,16 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
     })
     translation.translate()
 
-    const extra = ((item.getField('extra') || '') + '\n\n' + (await deferred.promise)).trim() // tslint:disable-line:prefer-template
-    item.setField('extra', extra)
+    let body = await deferred.promise
+    body += '\n\n'
+    body += 'oldItem: ' + otherItems.map(i => `${i.id}`).join(', ')
+    body = `<pre>${Zotero.Utilities.text2html(body)}</pre>`
+
+    const note = new Zotero.Item('note')
+    note.libraryID = item.libraryID
+    note.setNote(body)
+    note.parentKey = item.key
+    await note.saveTx()
 
   } catch (err) {
     Zotero.debug(`EdTecHub: ${err}`)
