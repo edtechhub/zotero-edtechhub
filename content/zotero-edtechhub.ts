@@ -21,6 +21,20 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
   try {
     await Zotero.Schema.schemaUpdatePromise
 
+    // preserve archiveLocation of all merged items
+    try {
+      const archiveLocation = getField(item, 'archiveLocation')
+      item.setField('archiveLocation', Array.from(new Set([item].concat(otherItems).map(i => getField(i, 'archiveLocation')).filter(al => al))).sort((a, b) => {
+        if (a === b) return 0
+        if (a === archiveLocation) return -1
+        if (b === archiveLocation) return 1
+        return a.localeCompare(b)
+      }).join(';'))
+    } catch (err) {
+      Zotero.debug('Cannot set archiveLocation on item: ' + err)
+    }
+
+    // keep RIS copy of all merged items
     const deferred = Zotero.Promise.defer()
     const translation = new Zotero.Translate.Export()
     translation.setItems([item, ...otherItems])
@@ -37,18 +51,6 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
 
     let user = Zotero.Prefs.get('sync.server.username')
     user = user ? `${user}, ` : ''
-
-    try {
-      const archiveLocation = getField(item, 'archiveLocation')
-      item.setField('archiveLocation', Array.from(new Set([item].concat(otherItems).map(i => getField(i, 'archiveLocation')).filter(al => al))).sort((a, b) => {
-        if (a === b) return 0
-        if (a === archiveLocation) return -1
-        if (b === archiveLocation) return 1
-        return a.localeCompare(b)
-      }).join(';'))
-    } catch (err) {
-      Zotero.debug('Cannot set archiveLocation on item: ' + err)
-    }
 
     const libraryKey = Zotero.URI.getLibraryPath(item.libraryID || Zotero.Libraries.userLibraryID).replace(/.*\//, '')
 
