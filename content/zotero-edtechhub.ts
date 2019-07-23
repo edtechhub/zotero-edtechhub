@@ -17,19 +17,66 @@ function getField(item, field) {
   }
 }
 
+function notify(events, handler) {
+  Zotero.Notifier.registerObserver({
+    notify(...args) {
+      Zotero.Schema.schemaUpdatePromise
+        .then(() => handler.apply(null, args))
+        .catch(err => Zotero.debug(`EdtTechHub.notify: ${JSON.stringify(args)}`))
+    },
+  }, (typeof events === 'string') ? [ events ] : events, 'EdTechHub', 1)
+}
+
+async function addArchiveLocation(item, id) {
+  const archiveLocation = getField(item, 'archiveLocation').split(';')
+  if (!archiveLocation.includes(id)) {
+    archiveLocation.unshift(id)
+    item.setField('archiveLocation', archiveLocation.join(';'))
+    await item.saveTx()
+  }
+}
+
+notify(['item-tag', 'item'], async (action, type, ids, extraData) => {
+  Zotero.debug('notify: ' + JSON.stringify({ action, type, ids, extraData }))
+
+  if (type === 'item-tag') ids = ids.map(id => parseInt(id.split('-')[0]))
+
+  for (const item of await Zotero.Items.getAsync(ids)) {
+    let doi = getField(item, 'DOI')
+    let short_doi = ''
+    let m
+    for (const line of getField(item, 'extra').split('\n')) {
+      if (m = line.trim().match(/^DOI:\s*(.+)/i)) {
+        doi = m[1]
+      } else if (m = line.trim().match(/^shortDOI:\s*(.+)/i)) {
+        short_doi = m[1]
+      }
+    }
+
+    if (m = short_doi.match(/^https?:\/\/doi\.org\/([a-z]+)$/)) {
+      short_doi = m[1]
+    }
+    if (!short_doi && (m = doi.match(/^(?:https?:\/\/)doi\.org\/([a-z]+)$/))) {
+      short_doi = m[1]
+    }
+
+    if (short_doi) {
+      await addArchiveLocation(item, short_doi)
+    } else if (item.getTags().find(tag => tag.tag === 'no doi found')) {
+      await addArchiveLocation(item, `${item.uri.replace(/.*\//, '')}:${item.key}`)
+    }
+  }
+})
+
 $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
   try {
     await Zotero.Schema.schemaUpdatePromise
 
     // preserve archiveLocation of all merged items
     try {
-      const archiveLocation = getField(item, 'archiveLocation')
-      item.setField('archiveLocation', Array.from(new Set([item].concat(otherItems).map(i => getField(i, 'archiveLocation')).filter(al => al))).sort((a, b) => {
-        if (a === b) return 0
-        if (a === archiveLocation) return -1
-        if (b === archiveLocation) return 1
-        return a.localeCompare(b)
-      }).join(';'))
+      const archiveLocation = getField(item, 'archiveLocation').split(';')
+      const otherArchiveLocation = Array.from(new Set(otherItems.map(i => getField(i, 'archiveLocation')))).filter(al => al && !archiveLocation.includes(al)).sort()
+      item.setField('archiveLocation', archiveLocation.concat(otherArchiveLocation).join(';'))
     } catch (err) {
       Zotero.debug('Cannot set archiveLocation on item: ' + err)
     }
