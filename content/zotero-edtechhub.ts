@@ -9,6 +9,20 @@ function $patch$(object, method, patcher) {
   object[method][marker] = true
 }
 
+function flash(title, body = null, timeout = 8) {
+  try {
+    const pw = new Zotero.ProgressWindow()
+    pw.changeHeadline(`EdTech Hub: ${title}`)
+    if (!body) body = title
+    if (Array.isArray(body)) body = body.join('\n')
+    pw.addDescription(body)
+    pw.show()
+    pw.startCloseTimer(timeout * 1000) // tslint:disable-line:no-magic-numbers
+  } catch (err) {
+    Zotero.debug(`@flash failed: ${JSON.stringify({title, body})} ${err}`)
+  }
+}
+
 function getField(item, field) {
   try {
     return item.getField(field) || ''
@@ -160,6 +174,11 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
   private async init() {
     if (this.initialized) return
     this.initialized = true
+
+    // if (!Zotero.ShortDOI) flash('Zotero-ShortDOI not installed', 'The short-doi plugin is not available, please install it from https://github.com/bwiernik/zotero-shortdoi')
+
+    const addons = await Zotero.getInstalledExtensions()
+    Zotero.debug(`init.addons: ${JSON.stringify(addons)}`)
   }
 }
 
