@@ -22,16 +22,25 @@ function notify(events, handler) {
     notify(...args) {
       Zotero.Schema.schemaUpdatePromise
         .then(() => handler.apply(null, args))
-        .catch(err => Zotero.debug(`EdtTechHub.notify: ${JSON.stringify(args)}`))
+        .then(err => Zotero.debug(`EdtTechHub.notify: finished ${JSON.stringify(args)}`))
+        .catch(err => Zotero.debug(`EdtTechHub.notify: error ${JSON.stringify(args)}: ${err}`))
     },
   }, (typeof events === 'string') ? [ events ] : events, 'EdTechHub', 1)
+}
+
+function libraryKey(item) {
+  return Zotero.URI.getLibraryPath(item.libraryID || Zotero.Libraries.userLibraryID).replace(/.*\//, '')
+}
+
+function isShortDOI(ShortDOI) { // tslint:disable-line:variable-name
+  return ShortDOI.match(/^10\/[a-z0-9]+$/)
 }
 
 async function addArchiveLocation(item, id) {
   const archiveLocation = getField(item, 'archiveLocation').split(';')
   if (!archiveLocation.includes(id)) {
     archiveLocation.unshift(id)
-    item.setField('archiveLocation', archiveLocation.join(';'))
+    item.setField('archiveLocation', archiveLocation.filter(al => al).join(';'))
     await item.saveTx()
   }
 }
@@ -41,29 +50,48 @@ notify(['item-tag', 'item'], async (action, type, ids, extraData) => {
 
   if (type === 'item-tag') ids = ids.map(id => parseInt(id.split('-')[0]))
 
-  for (const item of await Zotero.Items.getAsync(ids)) {
-    let doi = getField(item, 'DOI')
-    let short_doi = ''
+  Zotero.debug('notify: ' + JSON.stringify({ ids }))
+
+  const items = await Zotero.Items.getAsync(ids)
+
+  Zotero.debug('notify: ' + JSON.stringify({ ids, items: items.length }))
+  for (const item of items) {
+    Zotero.debug('notify: ' + JSON.stringify({ item: item.id }))
+
+    const doi = { long: getField(item, 'DOI'), short: '' }
+
     let m
     for (const line of getField(item, 'extra').split('\n')) {
       if (m = line.trim().match(/^DOI:\s*(.+)/i)) {
-        doi = m[1]
+        doi.long = m[1]
       } else if (m = line.trim().match(/^shortDOI:\s*(.+)/i)) {
-        short_doi = m[1]
+        doi.short = m[1]
       }
     }
 
-    if (m = short_doi.match(/^https?:\/\/doi\.org\/([a-z]+)$/)) {
-      short_doi = m[1]
-    }
-    if (!short_doi && (m = doi.match(/^(?:https?:\/\/)doi\.org\/([a-z]+)$/))) {
-      short_doi = m[1]
+    if (doi.long) doi.long = Zotero.Utilities.cleanDOI(doi.long)
+    if (doi.short) doi.short = Zotero.Utilities.cleanDOI(doi.short)
+
+    if (!doi.short && isShortDOI(doi.long)) doi.short = doi.long
+
+    if (!doi.short && Zotero.ShortDOI) {
+      const url = Zotero.ShortDOI.generateItemUrl(item, 'short')
+      if (url && url !== 'invalid') {
+        try {
+          const res = JSON.parse((await Zotero.HTTP.request('GET', url, { responseType: 'application/json' })).responseText)
+          Zotero.debug('notify: ' + JSON.stringify(res))
+          if (res.ShortDOI) doi.short = res.ShortDOI
+        } catch (err) {
+          Zotero.debug('notify: err = ' + err)
+        }
+      }
     }
 
-    if (short_doi) {
-      await addArchiveLocation(item, short_doi)
-    } else if (item.getTags().find(tag => tag.tag === 'no doi found')) {
-      await addArchiveLocation(item, `${item.uri.replace(/.*\//, '')}:${item.key}`)
+    Zotero.debug('notify: ' + JSON.stringify({ doi }))
+    if (doi.short) {
+      await addArchiveLocation(item, doi.short)
+    } else if (Zotero.ShortDOI && item.getTags().find(tag => [Zotero.ShortDOI.tag_invalid, Zotero.ShortDOI.tag_multiple, Zotero.ShortDOI.tag_nodoi].includes(tag.tag))) {
+      await addArchiveLocation(item, `${libraryKey(item)}:${item.key}`)
     }
   }
 })
@@ -99,12 +127,10 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
     let user = Zotero.Prefs.get('sync.server.username')
     user = user ? `${user}, ` : ''
 
-    const libraryKey = Zotero.URI.getLibraryPath(item.libraryID || Zotero.Libraries.userLibraryID).replace(/.*\//, '')
-
     let body = `<div><b>Item history (${user}${new Date})</b></div>\n`
     body += `<pre>${Zotero.Utilities.text2html(await deferred.promise)}</pre>\n`
     body += '<div><table>\n'
-    body += `<tr><td>group:</td><td>${libraryKey}</td></tr>\n`
+    body += `<tr><td>group:</td><td>${libraryKey(item)}</td></tr>\n`
     body += `<tr><td>itemKey:</td><td>${item.key}</td></tr>\n`
     body += `<tr><td>itemKeyOld:</td><td>${otherItems.map(i => i.key).join(', ')}</td></tr>\n`
     body += '</table></div>\n'

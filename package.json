@@ -8,10 +8,7 @@
     "build": "webpack",
     "postbuild": "zotero-plugin-zipup build zotero-edtechhub",
     "release": "zotero-plugin-release",
-    "postversion": "git push --follow-tags",
-
-    "start": "rm -f ~/.BBTZ5TEST/extensions/*edtech*xpi && echo `pwd`/build > ~/.BBTZ5TEST/extensions/edtechhub@iris-advies.com && /Applications/Zotero.app/Contents/MacOS/zotero -P BBTZ5TEST -ZoteroDebugText -datadir profile > ~/.BBTZ5TEST.log &"
-
+    "postversion": "git push --follow-tags"
   },
   "repository": {
     "type": "git",
