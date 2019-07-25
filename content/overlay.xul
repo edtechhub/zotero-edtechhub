@@ -4,6 +4,10 @@
 
 <overlay id="zotero-edtechhub-overlay"
 	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+
+  <menupopup id="zotero-itemmenu">
+    <menuitem label="&edtechhub.assign-key;" oncommand="Zotero.EdTechHub.assignKey();"/>
+  </menupopup>
 	
 	<!-- Include the main extension logic -->
   <script src="chrome://zotero/content/include.js"/>

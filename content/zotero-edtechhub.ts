@@ -50,66 +50,6 @@ function isShortDOI(ShortDOI) { // tslint:disable-line:variable-name
   return ShortDOI.match(/^10\/[a-z0-9]+$/)
 }
 
-async function addArchiveLocation(item, id) {
-  const archiveLocation = getField(item, 'archiveLocation').split(';')
-  if (!archiveLocation.includes(id)) {
-    archiveLocation.unshift(id)
-    item.setField('archiveLocation', archiveLocation.filter(al => al).join(';'))
-    await item.saveTx()
-  }
-}
-
-notify(['item-tag', 'item'], async (action, type, ids, extraData) => {
-  Zotero.debug('notify: ' + JSON.stringify({ action, type, ids, extraData }))
-
-  if (type === 'item-tag') ids = ids.map(id => parseInt(id.split('-')[0]))
-
-  Zotero.debug('notify: ' + JSON.stringify({ ids }))
-
-  const items = await Zotero.Items.getAsync(ids)
-
-  Zotero.debug('notify: ' + JSON.stringify({ ids, items: items.length }))
-  for (const item of items) {
-    Zotero.debug('notify: ' + JSON.stringify({ item: item.id }))
-
-    const doi = { long: getField(item, 'DOI'), short: '' }
-
-    let m
-    for (const line of getField(item, 'extra').split('\n')) {
-      if (m = line.trim().match(/^DOI:\s*(.+)/i)) {
-        doi.long = m[1]
-      } else if (m = line.trim().match(/^shortDOI:\s*(.+)/i)) {
-        doi.short = m[1]
-      }
-    }
-
-    if (doi.long) doi.long = Zotero.Utilities.cleanDOI(doi.long)
-    if (doi.short) doi.short = Zotero.Utilities.cleanDOI(doi.short)
-
-    if (!doi.short && isShortDOI(doi.long)) doi.short = doi.long
-
-    if (!doi.short && Zotero.ShortDOI) {
-      const url = Zotero.ShortDOI.generateItemUrl(item, 'short')
-      if (url && url !== 'invalid') {
-        try {
-          const res = JSON.parse((await Zotero.HTTP.request('GET', url, { responseType: 'application/json' })).responseText)
-          Zotero.debug('notify: ' + JSON.stringify(res))
-          if (res.ShortDOI) doi.short = res.ShortDOI
-        } catch (err) {
-          Zotero.debug('notify: err = ' + err)
-        }
-      }
-    }
-
-    Zotero.debug('notify: ' + JSON.stringify({ doi }))
-    if (doi.short) {
-      await addArchiveLocation(item, doi.short)
-    } else if (Zotero.ShortDOI && item.getTags().find(tag => [Zotero.ShortDOI.tag_invalid, Zotero.ShortDOI.tag_multiple, Zotero.ShortDOI.tag_nodoi].includes(tag.tag))) {
-      await addArchiveLocation(item, `${libraryKey(item)}:${item.key}`)
-    }
-  }
-})
-
 $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
   try {
     await Zotero.Schema.schemaUpdatePromise
@@ -162,6 +102,10 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
   return original.apply(this, arguments)
 })
 
+function report(msg, err) {
+  Zotero.debug(`EdTech hub: ${msg} ${err}`)
+}
+
 const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variable-name
   private initialized: boolean = false
 
@@ -169,6 +113,48 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     window.addEventListener('load', event => {
       this.init().catch(err => Zotero.logError(err))
     }, false)
+  }
+
+  public assignKey() {
+    this._assignKey().catch(err => report('assignKey', err))
+  }
+  private async _assignKey() {
+    const items = Zotero.getActiveZoteroPane().getSelectedItems()
+
+    for (const item of items) {
+      Zotero.debug('notify: ' + JSON.stringify({ item: item.id }))
+
+      const doi = { long: getField(item, 'DOI'), short: '' }
+
+      let m
+      for (const line of getField(item, 'extra').split('\n')) {
+        if (m = line.trim().match(/^DOI:\s*(.+)/i)) {
+          doi.long = m[1]
+        } else if (m = line.trim().match(/^shortDOI:\s*(.+)/i)) {
+          doi.short = m[1]
+        }
+      }
+
+      if (doi.long) doi.long = Zotero.Utilities.cleanDOI(doi.long)
+      if (doi.short) doi.short = Zotero.Utilities.cleanDOI(doi.short)
+
+      if (!doi.short && isShortDOI(doi.long)) doi.short = doi.long
+
+      Zotero.debug('notify: ' + JSON.stringify(doi))
+
+      let key = doi.short || doi.long
+      if (!key && Zotero.ShortDOI && item.getTags().find(tag => [Zotero.ShortDOI.tag_invalid, Zotero.ShortDOI.tag_multiple, Zotero.ShortDOI.tag_nodoi].includes(tag.tag))) {
+        key = `${libraryKey(item)}:${item.key}`
+      }
+      if (key) {
+        const archiveLocation = getField(item, 'archiveLocation').split(';')
+        if (!archiveLocation.includes(key)) {
+          archiveLocation.unshift(key)
+          item.setField('archiveLocation', archiveLocation.filter(al => al).join(';'))
+          await item.saveTx()
+        }
+      }
+    }
   }
 
   private async init() {
