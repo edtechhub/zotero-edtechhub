@@ -8,7 +8,8 @@
     "build": "webpack",
     "postbuild": "zotero-plugin-zipup build zotero-edtechhub",
     "release": "zotero-plugin-release",
-    "postversion": "git push --follow-tags"
+    "postversion": "git push --follow-tags",
+    "start": "./start.sh"
   },
   "repository": {
     "type": "git",
