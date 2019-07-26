@@ -19,15 +19,7 @@ function flash(title, body = null, timeout = 8) {
     pw.show()
     pw.startCloseTimer(timeout * 1000) // tslint:disable-line:no-magic-numbers
   } catch (err) {
-    Zotero.debug(`@flash failed: ${JSON.stringify({title, body})} ${err}`)
-  }
-}
-
-function getField(item, field) {
-  try {
-    return item.getField(field) || ''
-  } catch (err) {
-    return ''
+    debug(`@flash failed: ${JSON.stringify({title, body})} ${err}`)
   }
 }
 
@@ -36,8 +28,8 @@ function notify(events, handler) {
     notify(...args) {
       Zotero.Schema.schemaUpdatePromise
         .then(() => handler.apply(null, args))
-        .then(err => Zotero.debug(`EdtTechHub.notify: finished ${JSON.stringify(args)}`))
-        .catch(err => Zotero.debug(`EdtTechHub.notify: error ${JSON.stringify(args)}: ${err}`))
+        .then(err => debug(`notify: finished ${JSON.stringify(args)}`))
+        .catch(err => debug(`notify: error ${JSON.stringify(args)}: ${err}`))
     },
   }, (typeof events === 'string') ? [ events ] : events, 'EdTechHub', 1)
 }
@@ -56,11 +48,11 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
 
     // preserve archiveLocation of all merged items
     try {
-      const archiveLocation = getField(item, 'archiveLocation').split(';')
-      const otherArchiveLocation = Array.from(new Set(otherItems.map(i => getField(i, 'archiveLocation')))).filter(al => al && !archiveLocation.includes(al)).sort()
-      item.setField('archiveLocation', archiveLocation.concat(otherArchiveLocation).join(';'))
+      const archiveLocation = this.getArchiveLocation(item).split(';')
+      const otherArchiveLocation = Array.from(new Set(otherItems.map(i => this.getArchiveLocation(i)))).filter(al => al && !archiveLocation.includes(al)).sort()
+      this.setArchiveLocation(item, archiveLocation.concat(otherArchiveLocation).join(';'))
     } catch (err) {
-      Zotero.debug('Cannot set archiveLocation on item: ' + err)
+      debug('Cannot set archiveLocation on item: ' + err)
     }
 
     // keep RIS copy of all merged items
@@ -96,18 +88,26 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
     await note.saveTx()
 
   } catch (err) {
-    Zotero.debug(`EdTecHub: ${err}`)
+    debug('merge', err)
   }
 
   return original.apply(this, arguments)
 })
 
-function report(msg, err) {
-  Zotero.debug(`EdTech hub: ${msg} ${err}`)
+function debug(msg, err = null) {
+  if (err) {
+    Zotero.debug(`{EdTech hub error}: ${msg} ${err}`)
+  } else {
+    Zotero.debug(`{EdTech hub}: ${msg}`)
+  }
 }
 
 const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variable-name
   private initialized: boolean = false
+  private fieldID: {
+    archiveLocation: number
+    DOI: number
+  }
 
   constructor() {
     window.addEventListener('load', event => {
@@ -115,19 +115,43 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     }, false)
   }
 
+  private getArchiveLocation(item) {
+    if (Zotero.ItemFields.isValidForType(this.fieldID.archiveLocation, item.itemTypeID)) return item.getField('archiveLocation') || ''
+
+    let m
+    for (const line of (item.getField('extra') || '').split('\n')) {
+      if (m = line.match(/^archiveLocation:(.*)/i)) {
+        return m[1].trim()
+      }
+    }
+
+    return ''
+  }
+
+  private setArchiveLocation(item, archiveLocation) {
+    const extra = (item.getField('extra') || '').split('\n').filter(line => ! line.match(/^archiveLocation:/i)).join('\n').trim()
+
+    if (Zotero.ItemFields.isValidForType(this.fieldID.archiveLocation, item.itemTypeID)) {
+      item.setField('archiveLocation', archiveLocation)
+      item.setField('extra', extra)
+    } else {
+      item.setField('extra', (extra + `\narchiveLocation: ${archiveLocation}`).trim())
+    }
+  }
+
   public assignKey() {
-    this._assignKey().catch(err => report('assignKey', err))
+    this._assignKey().catch(err => debug('assignKey', err))
   }
   private async _assignKey() {
     const items = Zotero.getActiveZoteroPane().getSelectedItems()
 
     for (const item of items) {
-      Zotero.debug('notify: ' + JSON.stringify({ item: item.id }))
+      debug('assignKey: ' + JSON.stringify({ item: item.id }))
 
-      const doi = { long: getField(item, 'DOI'), short: '' }
+      const doi = { long: Zotero.ItemFields.isValidForType(this.fieldID.DOI, item.itemTypeID) ? item.getField('DOI') : '', short: '' }
 
       let m
-      for (const line of getField(item, 'extra').split('\n')) {
+      for (const line of item.getField('extra').split('\n')) {
         if (m = line.trim().match(/^DOI:\s*(.+)/i)) {
           doi.long = m[1]
         } else if (m = line.trim().match(/^shortDOI:\s*(.+)/i)) {
@@ -140,17 +164,17 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
 
       if (!doi.short && isShortDOI(doi.long)) doi.short = doi.long
 
-      Zotero.debug('notify: ' + JSON.stringify(doi))
+      debug('assignKey: ' + JSON.stringify(doi))
 
       let key = doi.short || doi.long
       if (!key && Zotero.ShortDOI && item.getTags().find(tag => [Zotero.ShortDOI.tag_invalid, Zotero.ShortDOI.tag_multiple, Zotero.ShortDOI.tag_nodoi].includes(tag.tag))) {
         key = `${libraryKey(item)}:${item.key}`
       }
       if (key) {
-        const archiveLocation = getField(item, 'archiveLocation').split(';')
+        const archiveLocation = this.getArchiveLocation(item).split(';')
         if (!archiveLocation.includes(key)) {
           archiveLocation.unshift(key)
-          item.setField('archiveLocation', archiveLocation.filter(al => al).join(';'))
+          this.setArchiveLocation(item, archiveLocation.filter(al => al).join(';'))
           await item.saveTx()
         }
       }
@@ -161,8 +185,12 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     if (this.initialized) return
     this.initialized = true
 
+    this.fieldID = {
+      archiveLocation: Zotero.ItemFields.getID('archiveLocation'),
+      DOI: Zotero.ItemFields.getID('DOI'),
+    }
+
     const addons = await Zotero.getInstalledExtensions()
-    Zotero.debug(`init.addons: ${JSON.stringify(addons)}`)
     if (!addons.find(addon => addon.startsWith('Zotero DOI Manager '))) flash('Zotero-ShortDOI not installed', 'The short-doi plugin is not available, please install it from https://github.com/bwiernik/zotero-shortdoi')
     if (!addons.find(addon => addon.startsWith('ZotFile '))) flash('ZotFile not installed', 'The ZotFile plugin is not available, please install it from http://zotfile.com/')
     if (!addons.find(addon => addon.startsWith('Zutilo Utility for Zotero '))) flash('Zutilo not installed', 'The Zutilo plugin is not available, please install it from https://github.com/willsALMANJ/Zutilo')
