@@ -175,6 +175,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
       debug('assignKey: ' + JSON.stringify(doi))
 
       let key = doi.short || doi.long
+      debug(`shortdoi: ${JSON.stringify({ invalid: Zotero.ShortDOI.tag_invalid, multiple: Zotero.ShortDOI.tag_multiple, nodoi: Zotero.ShortDOI.tag_nodoi, tags: item.getTags().map(tag => tag.tag) })}`)
       if (!key && Zotero.ShortDOI && item.getTags().find(tag => [Zotero.ShortDOI.tag_invalid, Zotero.ShortDOI.tag_multiple, Zotero.ShortDOI.tag_nodoi].includes(tag.tag))) {
         key = `${libraryKey(item)}:${item.key}`
       }
