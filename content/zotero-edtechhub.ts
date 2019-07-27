@@ -102,7 +102,11 @@ function debug(msg, err = null) {
   }
 }
 
+const ready = Zotero.Promise.defer()
+
 const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variable-name
+  public ready: Promise<boolean>
+
   private initialized: boolean = false
   private fieldID: {
     archiveLocation: number
@@ -110,6 +114,8 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
   }
 
   constructor() {
+    this.ready = ready.promise
+
     window.addEventListener('load', event => {
       this.init().catch(err => Zotero.logError(err))
     }, false)
@@ -143,6 +149,8 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     this._assignKey().catch(err => debug('assignKey', err))
   }
   private async _assignKey() {
+    await this.ready
+
     const items = Zotero.getActiveZoteroPane().getSelectedItems()
 
     for (const item of items) {
@@ -185,15 +193,27 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     if (this.initialized) return
     this.initialized = true
 
+    const progressWin = new Zotero.ProgressWindow({ closeOnClick: false })
+    progressWin.changeHeadline('EdTech hub: waiting for Zotero')
+    const icon = `chrome://zotero/skin/treesource-unfiled${Zotero.hiDPI ? '@2x' : ''}.png`
+    const progress = new progressWin.ItemProgress(icon, 'Waiting for Zotero.Schema.schemaUpdatePromise, please be patient')
+    progressWin.show()
+    await Zotero.Schema.schemaUpdatePromise
+    progress.setText('Ready')
+    progressWin.startCloseTimer(500) // tslint:disable-line:no-magic-numbers
+
     this.fieldID = {
       archiveLocation: Zotero.ItemFields.getID('archiveLocation'),
       DOI: Zotero.ItemFields.getID('DOI'),
     }
 
+    ready.resolve(true)
+
     const addons = await Zotero.getInstalledExtensions()
     if (!addons.find(addon => addon.startsWith('Zotero DOI Manager '))) flash('Zotero-ShortDOI not installed', 'The short-doi plugin is not available, please install it from https://github.com/bwiernik/zotero-shortdoi')
     if (!addons.find(addon => addon.startsWith('ZotFile '))) flash('ZotFile not installed', 'The ZotFile plugin is not available, please install it from http://zotfile.com/')
     if (!addons.find(addon => addon.startsWith('Zutilo Utility for Zotero '))) flash('Zutilo not installed', 'The Zutilo plugin is not available, please install it from https://github.com/willsALMANJ/Zutilo')
+
   }
 }
 
