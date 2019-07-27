@@ -156,7 +156,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     for (const item of items) {
       debug('assignKey: ' + JSON.stringify({ item: item.id }))
 
-      const doi = { long: Zotero.ItemFields.isValidForType(this.fieldID.DOI, item.itemTypeID) ? item.getField('DOI') : '', short: '' }
+      const doi = { long: Zotero.ItemFields.isValidForType(this.fieldID.DOI, item.itemTypeID) ? item.getField('DOI') : '', short: '', assign: '' }
 
       let m
       for (const line of item.getField('extra').split('\n')) {
@@ -170,22 +170,31 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
       if (doi.long) doi.long = Zotero.Utilities.cleanDOI(doi.long)
       if (doi.short) doi.short = Zotero.Utilities.cleanDOI(doi.short)
 
-      if (!doi.short && isShortDOI(doi.long)) doi.short = doi.long
+      doi.assign = doi.short || doi.long
 
-      debug('assignKey: ' + JSON.stringify(doi))
+      const archiveLocation = this.getArchiveLocation(item).split(';')
+      let save = false
 
-      let key = doi.short || doi.long
-      debug(`shortdoi: ${JSON.stringify({ invalid: Zotero.ShortDOI.tag_invalid, multiple: Zotero.ShortDOI.tag_multiple, nodoi: Zotero.ShortDOI.tag_nodoi, tags: item.getTags().map(tag => tag.tag) })}`)
-      if (!key && Zotero.ShortDOI && item.getTags().find(tag => [Zotero.ShortDOI.tag_invalid, Zotero.ShortDOI.tag_multiple, Zotero.ShortDOI.tag_nodoi].includes(tag.tag))) {
-        key = `${libraryKey(item)}:${item.key}`
+      if (doi.assign && !archiveLocation.includes(doi.assign)) {
+        archiveLocation.push(doi.assign)
+        save = true
       }
-      if (key) {
-        const archiveLocation = this.getArchiveLocation(item).split(';')
-        if (!archiveLocation.includes(key)) {
-          archiveLocation.unshift(key)
-          this.setArchiveLocation(item, archiveLocation.filter(al => al).join(';'))
-          await item.saveTx()
-        }
+
+      const key = `${libraryKey(item)}:${item.key}`
+      if (!archiveLocation.includes(key)) {
+        archiveLocation.push(key)
+        save = true
+      }
+
+      debug('assignKey: ' + JSON.stringify({...doi, key, save }))
+
+      /*
+      if (!key && Zotero.ShortDOI && item.getTags().find(tag => [Zotero.ShortDOI.tag_invalid, Zotero.ShortDOI.tag_multiple, Zotero.ShortDOI.tag_nodoi].includes(tag.tag))) {
+      }
+      */
+      if (save) {
+        this.setArchiveLocation(item, archiveLocation.filter(al => al).join(';'))
+        await item.saveTx()
       }
     }
   }
