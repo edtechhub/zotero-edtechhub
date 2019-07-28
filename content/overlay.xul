@@ -5,8 +5,12 @@
 <overlay id="zotero-edtechhub-overlay"
 	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 
+  <menupopup id="menu_HelpPopup">
+    <menuitem insertafter="reportErrors" label="&edtechhub.debug-log;" oncommand="Zotero.EdTechHub.run('debugLog')"/>
+  </menupopup>
+
   <menupopup id="zotero-itemmenu">
-    <menuitem label="&edtechhub.assign-key;" oncommand="Zotero.EdTechHub.assignKey();"/>
+    <menuitem label="&edtechhub.assign-key;" oncommand="Zotero.EdTechHub.run('assignKey');"/>
   </menupopup>
 	
 	<!-- Include the main extension logic -->
