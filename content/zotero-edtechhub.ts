@@ -151,7 +151,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
   private async _assignKey() {
     await this.ready
 
-    const items = Zotero.getActiveZoteroPane().getSelectedItems()
+    const items = Zotero.getActiveZoteroPane().getSelectedItems().filter(item => item.isRegularItem())
 
     for (const item of items) {
       debug('assignKey: ' + JSON.stringify({ item: item.id }))
