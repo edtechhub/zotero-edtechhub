@@ -49,8 +49,12 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
     // preserve archiveLocation of all merged items
     try {
       const archiveLocation = this.getArchiveLocation(item).split(';')
-      const otherArchiveLocation = Array.from(new Set(otherItems.map(i => this.getArchiveLocation(i)))).filter(al => al && !archiveLocation.includes(al)).sort()
-      this.setArchiveLocation(item, archiveLocation.concat(otherArchiveLocation).join(';'))
+      for (const otherItem of otherItems) {
+        for (const al of this.getArchiveLocation(otherItem).split(';')) {
+          if (al && !archiveLocation.includes(al)) archiveLocation.push(al)
+        }
+      }
+      this.setArchiveLocation(item, archiveLocation.filter(al => al).join(';'))
     } catch (err) {
       debug('Cannot set archiveLocation on item: ' + err)
     }
