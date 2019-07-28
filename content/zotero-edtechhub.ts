@@ -19,7 +19,7 @@ function flash(title, body = null, timeout = 8) {
     pw.show()
     pw.startCloseTimer(timeout * 1000) // tslint:disable-line:no-magic-numbers
   } catch (err) {
-    debug(`@flash failed: ${JSON.stringify({title, body})} ${err}`)
+    debug(`@flash failed: ${JSON.stringify({title, body})}`, err)
   }
 }
 
@@ -29,7 +29,7 @@ function notify(events, handler) {
       Zotero.Schema.schemaUpdatePromise
         .then(() => handler.apply(null, args))
         .then(err => debug(`notify: finished ${JSON.stringify(args)}`))
-        .catch(err => debug(`notify: error ${JSON.stringify(args)}: ${err}`))
+        .catch(err => debug(`notify: error ${JSON.stringify(args)}`, err))
     },
   }, (typeof events === 'string') ? [ events ] : events, 'EdTechHub', 1)
 }
@@ -42,6 +42,23 @@ function isShortDOI(ShortDOI) { // tslint:disable-line:variable-name
   return ShortDOI.match(/^10\/[a-z0-9]+$/)
 }
 
+function translate(items, translator) { // returns a promise
+  const deferred = Zotero.Promise.defer()
+  const translation = new Zotero.Translate.Export()
+  translation.setItems(items)
+  translation.setTranslator(translator)
+  translation.setHandler('done', (obj, success) => {
+    if (success) {
+      deferred.resolve(obj ? obj.string : '')
+    } else {
+      debug(`translate with ${translator} failed`, { message: 'undefined' })
+      deferred.resolve('')
+    }
+  })
+  translation.translate()
+  return deferred.promise
+}
+
 $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
   try {
     await Zotero.Schema.schemaUpdatePromise
@@ -52,29 +69,17 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
       const otherArchiveLocation = Array.from(new Set(otherItems.map(i => this.getArchiveLocation(i)))).filter(al => al && !archiveLocation.includes(al)).sort()
       this.setArchiveLocation(item, archiveLocation.concat(otherArchiveLocation).join(';'))
     } catch (err) {
-      debug('Cannot set archiveLocation on item: ' + err)
+      debug('Cannot set archiveLocation on item', err)
     }
 
     // keep RIS copy of all merged items
-    const deferred = Zotero.Promise.defer()
-    const translation = new Zotero.Translate.Export()
-    translation.setItems([item, ...otherItems])
-    translation.setTranslator('32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7') // RIS
-    translation.setHandler('done', (obj, success) => {
-      if (success) {
-        deferred.resolve(obj ? obj.string : '')
-      } else {
-        Zotero.logError('RIS-merge failed')
-        deferred.resolve('')
-      }
-    })
-    translation.translate()
+    const ris = await translate([item, ...otherItems], '32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7') // RIS
 
     let user = Zotero.Prefs.get('sync.server.username')
     user = user ? `${user}, ` : ''
 
     let body = `<div><b>Item history (${user}${new Date})</b></div>\n`
-    body += `<pre>${Zotero.Utilities.text2html(await deferred.promise)}</pre>\n`
+    body += `<pre>${Zotero.Utilities.text2html(ris)}</pre>\n`
     body += '<div><table>\n'
     body += `<tr><td>group:</td><td>${libraryKey(item)}</td></tr>\n`
     body += `<tr><td>itemKey:</td><td>${item.key}</td></tr>\n`
@@ -96,10 +101,45 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
 
 function debug(msg, err = null) {
   if (err) {
-    Zotero.debug(`{EdTech hub error}: ${msg} ${err}`)
+    msg += `\n${err.message || err.toString()}`
+
+    const fileName = err.fileName || err.filename
+    if (fileName && err.lineNumber) {
+      msg += `\n${fileName} @ ${err.lineNumber}`
+    } else if (err.lineNumber) {
+      msg += `\n@ ${err.lineNumber}`
+    }
+
+    if (err.stack) msg += `\n${err.stack}`
+
+    Zotero.debug(`{EdTech hub error}: ${msg}`, 1)
+
   } else {
     Zotero.debug(`{EdTech hub}: ${msg}`)
+
   }
+}
+
+function post(url, body) {
+  return new Promise(function(resolve, reject) { // tslint:disable-line:only-arrow-functions
+    const xhr = Components.classes['@mozilla.org/xmlextras/xmlhttprequest;1'].createInstance()
+
+    xhr.open('POST', url)
+
+    xhr.onload = function() {
+      if (this.status >= 200 && this.status < 300) { // tslint:disable-line:no-magic-numbers
+        resolve(xhr.response)
+      } else {
+        reject({ status: this.status, statusText: xhr.statusText })
+      }
+    }
+
+    xhr.onerror = function() {
+      reject({ status: this.status, statusText: xhr.statusText })
+    }
+
+    xhr.send(body)
+  })
 }
 
 const ready = Zotero.Promise.defer()
@@ -117,7 +157,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     this.ready = ready.promise
 
     window.addEventListener('load', event => {
-      this.init().catch(err => Zotero.logError(err))
+      this.run('init')
     }, false)
   }
 
@@ -145,10 +185,11 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     }
   }
 
-  public assignKey() {
-    this._assignKey().catch(err => debug('assignKey', err))
+  public run(method) {
+    this[method]().catch(err => debug(method, err))
   }
-  private async _assignKey() {
+
+  public async assignKey() {
     await this.ready
 
     const items = Zotero.getActiveZoteroPane().getSelectedItems().filter(item => item.isRegularItem())
@@ -224,6 +265,32 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     if (!addons.find(addon => addon.startsWith('ZotFile '))) flash('ZotFile not installed', 'The ZotFile plugin is not available, please install it from http://zotfile.com/')
     if (!addons.find(addon => addon.startsWith('Zutilo Utility for Zotero '))) flash('Zutilo not installed', 'The Zutilo plugin is not available, please install it from https://github.com/willsALMANJ/Zutilo')
 
+  }
+
+  public async debugLog() {
+    await this.ready
+
+    let body
+
+    const log = []
+
+    // const service = 'https://httpbin.org/post'
+    const service = 'https://0x0.st'
+
+    const items = Zotero.getActiveZoteroPane().getSelectedItems() || []
+    if (items.length) {
+      body = new FormData()
+      const rdf = await translate(items, '14763d24-8ba0-45df-8f52-b8d1108e7ac9') // RDF
+      body.set('file', new Blob([ rdf ], { type: 'application/rdf' }), 'items.rdf')
+      log.push(post(service, body))
+    }
+
+    body = new FormData()
+    body.set('file', new Blob([ (Zotero.getErrors(true).join('\n') + '\n\n' + Zotero.Debug.getConsoleViewerOutput()).trim() ], { type: 'text/plain' }), 'log.txt') // tslint:disable-line:prefer-template
+    log.push(post(service, body))
+
+    const responses = await Promise.all(log)
+    alert(responses.map(url => url.trim().replace(/.*\//, '')).join('+'))
   }
 }
 
