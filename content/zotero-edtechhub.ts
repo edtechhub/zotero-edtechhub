@@ -60,21 +60,21 @@ function translate(items, translator) { // returns a promise
 }
 
 $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
+  debug('merge:')
   try {
     await Zotero.Schema.schemaUpdatePromise
 
     // preserve archiveLocation of all merged items
-    try {
-      const archiveLocation = this.getArchiveLocation(item).split(';')
-      for (const otherItem of otherItems) {
-        for (const al of this.getArchiveLocation(otherItem).split(';')) {
-          if (al && !archiveLocation.includes(al)) archiveLocation.push(al)
-        }
+    const archiveLocation = Zotero.EdTechHub.getArchiveLocation(item).split(';')
+    debug(`merge-archiveLocation: pre archiveLocation = ${JSON.stringify(archiveLocation)}`)
+    for (const otherItem of otherItems) {
+      for (const al of Zotero.EdTechHub.getArchiveLocation(otherItem).split(';')) {
+        debug(`merge-archiveLocation: + ${JSON.stringify(al)}`)
+        if (al && !archiveLocation.includes(al)) archiveLocation.push(al)
       }
-      this.setArchiveLocation(item, archiveLocation.filter(al => al).join(';'))
-    } catch (err) {
-      debug('Cannot set archiveLocation on item', err)
     }
+    debug(`merge-archiveLocation: post archiveLocation = ${JSON.stringify(archiveLocation)}`)
+    Zotero.EdTechHub.setArchiveLocation(item, archiveLocation.filter(al => al).join(';'))
 
     // keep RIS copy of all merged items
     const ris = await translate([item, ...otherItems], '32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7') // RIS
@@ -97,7 +97,7 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
     await note.saveTx()
 
   } catch (err) {
-    debug('merge', err)
+    debug('merge:', err)
   }
 
   return original.apply(this, arguments)
