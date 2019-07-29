@@ -146,8 +146,6 @@ function post(url, body) {
   })
 }
 
-const ready = Zotero.Promise.defer()
-
 const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variable-name
   public ready: Promise<boolean>
 
@@ -158,10 +156,12 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
   }
 
   constructor() {
+    const ready = Zotero.Promise.defer()
     this.ready = ready.promise
 
     window.addEventListener('load', event => {
-      this.run('init')
+
+      this.run('init', ready)
     }, false)
   }
 
@@ -189,8 +189,8 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     }
   }
 
-  public run(method) {
-    this[method]().catch(err => debug(method, err))
+  public run(method, ...args) {
+    this[method].apply(this, args).catch(err => debug(method, err))
   }
 
   public async assignKey() {
@@ -244,7 +244,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     }
   }
 
-  private async init() {
+  private async init(ready) {
     if (this.initialized) return
     this.initialized = true
 
