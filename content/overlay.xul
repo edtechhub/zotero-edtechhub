@@ -10,7 +10,8 @@
   </menupopup>
 
   <menupopup id="zotero-itemmenu">
-    <menuitem label="&edtechhub.assign-key;" oncommand="Zotero.EdTechHub.run('assignKey');"/>
+    <menuitem id="edtechhub-assign-key" label="&edtechhub.assign-key;" oncommand="Zotero.EdTechHub.run('assignKey');"/>
+    <menuitem id="edtechhub-duplicate-attachment" label="&edtechhub.duplicate-attachment;" oncommand="Zotero.EdTechHub.run('duplicateAttachment');"/>
   </menupopup>
 	
 	<!-- Include the main extension logic -->

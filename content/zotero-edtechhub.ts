@@ -1,8 +1,12 @@
 declare const Zotero: any
 declare const Components: any
 
-const marker = 'EdTechHubMonkeyPatched'
+Components.utils.import('resource://gre/modules/osfile.jsm')
+declare const OS: any
 
+import sanitize_filename = require('sanitize-filename')
+
+const marker = 'EdTechHubMonkeyPatched'
 function $patch$(object, method, patcher) {
   if (object[method][marker]) return
   object[method] = patcher(object[method])
@@ -116,7 +120,7 @@ function debug(msg, err = null) {
 
     if (err.stack) msg += `\n${err.stack}`
 
-    Zotero.debug(`{EdTech hub error}: ${msg}`, 1)
+    Zotero.debug(`{EdTech hub} error: ${msg}`, 1)
 
   } else {
     Zotero.debug(`{EdTech hub}: ${msg}`)
@@ -146,6 +150,18 @@ function post(url, body) {
   })
 }
 
+function zotero_itemmenu_popupshowing() {
+  const selected = Zotero.getActiveZoteroPane().getSelectedItems()
+
+  document.getElementById('edtechhub-assign-key').hidden = Zotero.EdTechHub.ready.isPending() || ! selected.find(item => item.isRegularItem())
+
+  document.getElementById('edtechhub-duplicate-attachment').hidden =
+    Zotero.EdTechHub.ready.isPending()
+    || selected.length !== 1 || !selected[0].isAttachment() // must be a single attachment
+    || ! [ Zotero.Attachments.LINK_MODE_LINKED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_FILE ].includes(selected[0].attachmentLinkMode) // not a linked or imported file
+    || ! selected[0].getFilePath() // path does not exist
+}
+
 const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variable-name
   public ready: Promise<boolean>
 
@@ -160,8 +176,12 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     this.ready = ready.promise
 
     window.addEventListener('load', event => {
-
       this.run('init', ready)
+      document.getElementById('zotero-itemmenu').addEventListener('popupshowing', zotero_itemmenu_popupshowing, false)
+    }, false)
+
+    window.addEventListener('unload', event => {
+      document.getElementById('zotero-itemmenu').removeEventListener('popupshowing', zotero_itemmenu_popupshowing, false)
     }, false)
   }
 
@@ -241,6 +261,63 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
         this.setArchiveLocation(item, archiveLocation.filter(al => al).join(';'))
         await item.saveTx()
       }
+    }
+  }
+
+  public async duplicateAttachment() {
+    await this.ready
+
+    const attachment = Zotero.getActiveZoteroPane().getSelectedItems().find(item => item.isAttachment())
+    const path = await attachment.getFilePathAsync()
+    if (!path) return
+
+    const parent = typeof attachment.parentItemID === 'number' ? await Zotero.Items.get(attachment.parentItemID) : null
+    debug(`duplicateAttachment: ${path} ${typeof path}`)
+
+    const baseName = OS.Path.basename(path)
+    const baseNameWithoutExtension = baseName.replace(/([^.])\.[^.]+$/, '$1') // remove extension, but make sure there's at least one char before it
+    const ext = baseName.substring(baseNameWithoutExtension.length)
+
+    const fileBaseName = sanitize_filename([
+      baseNameWithoutExtension,
+      Zotero.Prefs.get('sync.server.username'),
+      (new Date).toISOString().replace(/T.*/, '').replace(/-/g, ''),
+      parent ? this.getArchiveLocation(parent).split(';')[0].replace(/[^a-z0-9]+/gi, '_') : null,
+    ].filter(bn => bn).join('-'))
+
+    switch (attachment.attachmentLinkMode) {
+      case Zotero.Attachments.LINK_MODE_LINKED_FILE:
+        const dirName = OS.Path.dirname(path)
+        let copy
+        let postfix = 0
+        while (await OS.File.exists(copy = OS.Path.join(dirName, `${fileBaseName}${postfix ? '-' + postfix : ''}${ext}`))) {
+          postfix += 1
+        }
+        await OS.File.copy(path, copy)
+        await Zotero.Attachments.linkFromFile({
+          file: copy,
+          parentItemID: parent ? attachment.parentItemID : undefined,
+          collections: parent ? undefined : attachment.getCollections(),
+          contentType: attachment.contentType,
+          charset: attachment.charset,
+        })
+        break
+
+      case Zotero.Attachments.LINK_MODE_IMPORTED_FILE:
+        await Zotero.Attachments.importFromFile({
+          file: path,
+          libraryID: attachment.libraryID,
+          parentItemID: parent ? attachment.parentItemID : undefined,
+          collections: parent ? undefined : attachment.getCollections(),
+          fileBaseName,
+          contentType: attachment.contentType,
+          charset: attachment.charset,
+        })
+        debug(`imported file: ${fileBaseName}`)
+        break
+
+      default:
+        return
     }
   }
 
