@@ -155,6 +155,19 @@ function zotero_itemmenu_popupshowing() {
 
   document.getElementById('edtechhub-assign-key').hidden = Zotero.EdTechHub.ready.isPending() || ! selected.find(item => item.isRegularItem())
 
+  if (Zotero.EdTechHub.ready.isPending()) {
+    debug('duplicate hidden: ready pending')
+  } else if (selected.length !== 1) {
+    debug(`duplicate hidden: selected = ${selected.length}`)
+  } else if (!selected[0].isAttachment()) {
+    debug('duplicate hidden: selected is not an attachment')
+  } else if (! [ Zotero.Attachments.LINK_MODE_LINKED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_FILE ].includes(selected[0].attachmentLinkMode)) {
+    debug(`duplicate hidden: ${selected[0].attachmentLinkMode} is not in ${[ Zotero.Attachments.LINK_MODE_LINKED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_FILE ]}`)
+  } else if (! selected[0].getFilePath()) {
+    debug('duplicate hidden: file not found')
+  } else {
+    debug('duplicate enabled')
+  }
   document.getElementById('edtechhub-duplicate-attachment').hidden =
     Zotero.EdTechHub.ready.isPending()
     || selected.length !== 1 || !selected[0].isAttachment() // must be a single attachment
