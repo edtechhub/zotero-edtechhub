@@ -155,23 +155,11 @@ function zotero_itemmenu_popupshowing() {
 
   document.getElementById('edtechhub-assign-key').hidden = Zotero.EdTechHub.ready.isPending() || ! selected.find(item => item.isRegularItem())
 
-  if (Zotero.EdTechHub.ready.isPending()) {
-    debug('duplicate hidden: ready pending')
-  } else if (selected.length !== 1) {
-    debug(`duplicate hidden: selected = ${selected.length}`)
-  } else if (!selected[0].isAttachment()) {
-    debug('duplicate hidden: selected is not an attachment')
-  } else if (! [ Zotero.Attachments.LINK_MODE_LINKED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_FILE ].includes(selected[0].attachmentLinkMode)) {
-    debug(`duplicate hidden: ${selected[0].attachmentLinkMode} is not in ${[ Zotero.Attachments.LINK_MODE_LINKED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_FILE ]}`)
-  } else if (! selected[0].getFilePath()) {
-    debug('duplicate hidden: file not found')
-  } else {
-    debug('duplicate enabled')
-  }
   document.getElementById('edtechhub-duplicate-attachment').hidden =
     Zotero.EdTechHub.ready.isPending()
     || selected.length !== 1 || !selected[0].isAttachment() // must be a single attachment
-    || ! [ Zotero.Attachments.LINK_MODE_LINKED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_FILE ].includes(selected[0].attachmentLinkMode) // not a linked or imported file
+    || ! [ Zotero.Attachments.LINK_MODE_LINKED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_URL ].includes(selected[0].attachmentLinkMode) // not a linked or imported file
+    || (selected[0].attachmentLinkMode === Zotero.Attachments.LINK_MODE_IMPORTED_URL && selected[0].attachmentContentType === 'text/html') // no web snapshots
     || ! selected[0].getFilePath() // path does not exist
 }
 
@@ -317,6 +305,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
         break
 
       case Zotero.Attachments.LINK_MODE_IMPORTED_FILE:
+      case Zotero.Attachments.LINK_MODE_IMPORTED_URL:
         await Zotero.Attachments.importFromFile({
           file: path,
           libraryID: attachment.libraryID,
