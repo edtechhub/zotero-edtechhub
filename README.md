@@ -1,6 +1,8 @@
 Edtechhub
 =================
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/edtechhub/zotero-edtechhub.svg)](https://greenkeeper.io/)
+
 Install by downloading the [latest version](https://github.com/edtechhub/zotero-edtechhub/releases/latest)
 
 EdTech hub companion plugin for Zotero
