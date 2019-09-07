@@ -27,14 +27,14 @@
     "circular-dependency-plugin": "^5.2.0",
     "post-compile-webpack-plugin": "^0.1.2",
     "rimraf": "^3.0.0",
-    "sanitize-filename": "^1.6.2",
+    "sanitize-filename": "^1.6.3",
     "ts-loader": "^6.0.4",
     "ts-node": "^8.3.0",
     "tslint": "^5.19.0",
-    "typescript": "^3.5.3",
-    "webpack": "^4.39.2",
-    "webpack-cli": "^3.3.7",
-    "zotero-plugin": "^0.0.87"
+    "typescript": "^3.6.2",
+    "webpack": "^4.39.3",
+    "webpack-cli": "^3.3.8",
+    "zotero-plugin": "^0.0.88"
   },
   "xpi": {
     "name": "EdTechHub for Zotero",
