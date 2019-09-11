@@ -34,7 +34,7 @@
     "typescript": "^3.6.2",
     "webpack": "^4.39.3",
     "webpack-cli": "^3.3.8",
-    "zotero-plugin": "^0.0.88"
+    "zotero-plugin": "^0.0.89"
   },
   "xpi": {
     "name": "EdTechHub for Zotero",
