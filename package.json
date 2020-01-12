@@ -26,15 +26,17 @@
   "dependencies": {
     "circular-dependency-plugin": "^5.2.0",
     "post-compile-webpack-plugin": "^0.1.2",
+    "request": "^2.88.0",
+    "request-promise": "^4.2.5",
     "rimraf": "^3.0.0",
     "sanitize-filename": "^1.6.3",
     "ts-loader": "^6.2.1",
-    "ts-node": "^8.5.2",
+    "ts-node": "^8.6.1",
     "tslint": "^5.20.1",
-    "typescript": "^3.7.2",
-    "webpack": "^4.41.2",
+    "typescript": "^3.7.4",
+    "webpack": "^4.41.5",
     "webpack-cli": "^3.3.10",
-    "zotero-plugin": "^0.0.95"
+    "zotero-plugin": "^0.0.96"
   },
   "xpi": {
     "name": "EdTechHub for Zotero",
