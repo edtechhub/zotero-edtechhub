@@ -88,11 +88,11 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
 
     let body = `<div><b>Item history (${user}${new Date})</b></div>\n`
     body += `<pre>${Zotero.Utilities.text2html(ris)}</pre>\n`
-    body += '<div><table>\n'
-    body += `<tr><td>group:</td><td>${libraryKey(item)}</td></tr>\n`
-    body += `<tr><td>itemKey:</td><td>${item.key}</td></tr>\n`
-    body += `<tr><td>itemKeyOld:</td><td>${otherItems.map(i => i.key).join(', ')}</td></tr>\n`
-    body += '</table></div>\n'
+    body += '<div>\n'
+    body += `<p>group:</td><td>${libraryKey(item)}</p>\n`
+    body += `<p>itemKey:</td><td>${item.key}</p>\n`
+    body += `<p>itemKeyOld:</td><td>${otherItems.map(i => i.key).join(', ')}</p>\n`
+    body += '</div>\n'
 
     const note = new Zotero.Item('note')
     note.libraryID = item.libraryID
