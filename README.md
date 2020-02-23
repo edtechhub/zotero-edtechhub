@@ -32,6 +32,10 @@ We always use these plugins (for Zotero, at the EdTech Hub). The EdTech Hub plug
 - Zutilo
 - ZotFile
 
+### Notification while Zotero is getting ready.
+
+There's some function (such as export, or the additional menu options) that don't show while Zotero is completing the startup. The plugin adds a warning that disappears when Zotero is fully loaded.
+
 ### Storing items IDs in extras
 
 The reason we care about item IDs (and tracking them through merges, etc) is that that we can embed item ids into google docs. If item ids change, but the 'item id history' is preserved, then they can be updated. Embedded item ids turn into links to our public evidence library, available here https://docs.edtechhub.org (which uses https://github.com/edtechhub/eth-evidence-library-kerko).
