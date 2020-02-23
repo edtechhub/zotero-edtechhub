@@ -10,6 +10,7 @@
   </menupopup>
 
   <menupopup id="zotero-itemmenu">
+    <menuseparator/>
     <menuitem class="edtechhub-zotero-itemmenu-regularitem" label="&edtechhub.Bjoern2A_BjoernCitationStringTagged;" oncommand="Zotero.EdTechHub.run('copyToClipboard', '4ec4a50b-e979-448f-af4c-e5b46d1a3b03');"/>
     <menuitem class="edtechhub-zotero-itemmenu-regularitem" label="&edtechhub.Bjoern2B_BjoernCitationStringTagged;" oncommand="Zotero.EdTechHub.run('copyToClipboard', 'b46d575e-396c-11ea-8ee0-0741699b71ec');"/>
     <menuitem class="edtechhub-zotero-itemmenu-regularitem" label="&edtechhub.Bjoern7_ETHref;" oncommand="Zotero.EdTechHub.run('copyToClipboard', 'ba5f8764-3966-11ea-9cd5-5b52329a4e4c');"/>
