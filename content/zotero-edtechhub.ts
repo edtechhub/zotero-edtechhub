@@ -349,11 +349,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     if (!addons.find(addon => addon.startsWith('ZotFile '))) flash('ZotFile not installed', 'The ZotFile plugin is not available, please install it from http://zotfile.com/')
     if (!addons.find(addon => addon.startsWith('Zutilo Utility for Zotero '))) flash('Zutilo not installed', 'The Zutilo plugin is not available, please install it from https://github.com/willsALMANJ/Zutilo')
 
-    debug('installing translators')
-    await this.installTranslator('Bjoern2A_BjoernCitationStringTagged.js')
-    await this.installTranslator('Bjoern2B_BjoernCitationStringTagged.js')
-    await this.installTranslator('Bjoern7_ETHref.js')
-    await Zotero.Translators.reinit()
+    await this.installTranslators()
   }
 
   private async installTranslator(name) {
@@ -369,11 +365,21 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
 
     debug(`installed ${name}`)
   }
+  private async installTranslators() {
+    debug('installing translators')
+    await this.installTranslator('Bjoern2A_BjoernCitationStringTagged.js')
+    await this.installTranslator('Bjoern2B_BjoernCitationStringTagged.js')
+    await this.installTranslator('Bjoern7_ETHref.js')
+    await Zotero.Translators.reinit()
+  }
 
-  private uninstallTranslator(name) {
-    const translator = Zotero.getTranslatorsDirectory()
-    translator.append(name)
-    if (translator.exists()) translator.remove(false)
+  private uninstallTranslators(name) {
+    for (const { file } of this.translators) {
+      const translator = Zotero.getTranslatorsDirectory()
+      translator.append(file)
+      if (translator.exists()) translator.remove(false)
+    }
+    this.translators = []
   }
 
   public async debugLog() {
@@ -411,13 +417,10 @@ AddonManager.addAddonListener({
   onUninstalling(addon, needsRestart) {
     if (addon.id !== 'edtechhub@edtechhub.org') return null
 
+    EdTechHub.uninstallTranslators()
     const quickCopy = Zotero.Prefs.get('export.quickCopy.setting')
-    for (const { file, translatorID } of EdTechHub.translators) {
+    for (const { translatorID } of EdTechHub.translators) {
       if (quickCopy === `export=${translatorID}`) Zotero.Prefs.clear('export.quickCopy.setting')
-
-      try {
-        EdTechHub.uninstall(file)
-      } catch (error) {}
     }
 
     EdTechHub.uninstalled = true
@@ -430,12 +433,8 @@ AddonManager.addAddonListener({
     // tslint:disable-next-line:no-bitwise
     if (addon.pendingOperations & (AddonManager.PENDING_UNINSTALL | AddonManager.PENDING_DISABLE)) return null
 
-    // uninstall cancelled, re-do installation
-    for (const { file } of EdTechHub.translators) {
-      try {
-        EdTechHub.install(file)
-      } catch (err) {}
-    }
+    // uninstall cancelled, re-do installation.
+    EdTechHub.installTranslators()
 
     delete EdTechHub.uninstalled
   },
