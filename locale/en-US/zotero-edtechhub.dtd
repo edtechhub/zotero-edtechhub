@@ -3,3 +3,7 @@
 <!ENTITY edtechhub.save-to-note "Save item details to note">
 <!ENTITY edtechhub.duplicate-attachment "Duplicate attachment">
 <!ENTITY edtechhub.debug-log "Send EdTech hub debug log">
+
+<!ENTITY edtechhub.Bjoern2A_BjoernCitationStringTagged "Bjoerns Citation String with country, all brackets (Bjoern2A)">
+<!ENTITY edtechhub.Bjoern2B_BjoernCitationStringTagged "Bjoerns Citation String with country, year in brackets (Bjoern2B)">
+<!ENTITY edtechhub.Bjoern7_ETHref "Bjoerns useful sharer for the EdTech Hub (Bjoern7_ETHref)">
