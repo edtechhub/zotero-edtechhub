@@ -46,6 +46,21 @@ function isShortDOI(ShortDOI) { // tslint:disable-line:variable-name
   return ShortDOI.match(/^10\/[a-z0-9]+$/)
 }
 
+function toClipboard(text) {
+  const clipboard = Components.classes['@mozilla.org/widget/clipboard;1'].getService(Components.interfaces.nsIClipboard)
+  const transferable = Components.classes['@mozilla.org/widget/transferable;1'].createInstance(Components.interfaces.nsITransferable)
+
+  const mimetype = 'text/unicode'
+
+  const str = Components.classes['@mozilla.org/supports-string;1'].createInstance(Components.interfaces.nsISupportsString)
+  str.data = text
+  transferable.addDataFlavor(mimetype)
+  transferable.setTransferData(mimetype, str, text.length * 2)
+
+  clipboard.setData(transferable, null, Components.interfaces.nsIClipboard.kGlobalClipboard)
+}
+
+
 function translate(items, translator) { // returns a promise
   const deferred = Zotero.Promise.defer()
   const translation = new Zotero.Translate.Export()
@@ -159,8 +174,10 @@ function post(url, body) {
 function zotero_itemmenu_popupshowing() {
   const selected = Zotero.getActiveZoteroPane().getSelectedItems()
 
-  document.getElementById('edtechhub-assign-key').hidden = Zotero.EdTechHub.ready.isPending() || ! selected.find(item => item.isRegularItem())
-  document.getElementById('edtechhub-save-to-note').hidden = Zotero.EdTechHub.ready.isPending() || ! selected.find(item => item.isRegularItem())
+  const hidden = Zotero.EdTechHub.ready.isPending() || ! selected.find(item => item.isRegularItem())
+  for (const elt of Array.from(document.getElementsByClassName('edtechhub-zotero-itemmenu-regularitem'))) {
+    (elt as any).hidden = hidden
+  }
 
   document.getElementById('edtechhub-duplicate-attachment').hidden =
     Zotero.EdTechHub.ready.isPending()
@@ -372,6 +389,16 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     if (!addons.find(addon => addon.startsWith('Zutilo Utility for Zotero '))) flash('Zutilo not installed', 'The Zutilo plugin is not available, please install it from https://github.com/willsALMANJ/Zutilo')
 
     await this.installTranslators()
+  }
+
+  private async copyToClipboard(translatorID) {
+    const items = Zotero.getActiveZoteroPane().getSelectedItems().filter(item => item.isRegularItem())
+    const nitems = items.length // translate consumes the items
+    if (!nitems) return
+
+    const text = await translate(items, translatorID)
+    toClipboard(text)
+    flash(`${nitems} items copied to clipboard`)
   }
 
   private async installTranslator(name) {
