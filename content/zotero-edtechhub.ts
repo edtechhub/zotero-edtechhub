@@ -299,7 +299,10 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     for (const item of items) {
       const note = new Zotero.Item('note')
       note.libraryID = item.libraryID
-      note.setNote(`<pre>${Zotero.Utilities.text2html(await asRIS(item))}</pre>`)
+
+      let user = Zotero.Prefs.get('sync.server.username')
+      user = user ? `${user}, ` : ''
+      note.setNote(`<p><b>Item details (${user}${new Date})</b></p>\n<pre>${Zotero.Utilities.text2html(await asRIS(item))}</pre>`)
       note.parentKey = item.key
       await note.saveTx()
     }
