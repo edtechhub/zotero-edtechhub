@@ -22,7 +22,14 @@ This is a plugin for Zotero, developed for use by EdTech Hub staff.
 - ETH Duplicate attachment. Duplicates the attachment.
 
 ## Other features.
+### Merges
 The plugin affects item merges. When items are merged, the fields of each item prior to the merge are added to a note. Helpful if an merge has lead to loss of information.
+
+### Warning if plugins aren't installed
+We always use these plugins (for Zotero, at the EdTech Hub). The EdTech Hub plugin therefore warns the user if these are not installed:
+- short-dois
+- Zutilo
+- ZotFile
 
 # Reporting errors
 
