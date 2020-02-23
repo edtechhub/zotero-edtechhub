@@ -11,6 +11,7 @@
 
   <menupopup id="zotero-itemmenu">
     <menuitem id="edtechhub-assign-key" label="&edtechhub.assign-key;" oncommand="Zotero.EdTechHub.run('assignKey');"/>
+    <menuitem id="edtechhub-save-to-note" label="&edtechhub.save-to-note;" oncommand="Zotero.EdTechHub.run('saveToNote');"/>
     <menuitem id="edtechhub-duplicate-attachment" label="&edtechhub.duplicate-attachment;" oncommand="Zotero.EdTechHub.run('duplicateAttachment');"/>
   </menupopup>
 	

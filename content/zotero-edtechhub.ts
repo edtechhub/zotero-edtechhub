@@ -63,6 +63,12 @@ function translate(items, translator) { // returns a promise
   return deferred.promise
 }
 
+async function asRIS(items) {
+  if (!Array.isArray(items)) items = [ items ]
+
+  return await translate(items, '32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7') // RIS
+}
+
 $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
   debug('merge:')
   try {
@@ -81,7 +87,7 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
     Zotero.EdTechHub.setArchiveLocation(item, archiveLocation.filter(al => al).join(';'))
 
     // keep RIS copy of all merged items
-    const ris = await translate([item, ...otherItems], '32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7') // RIS
+    const ris = await asRIS([item, ...otherItems])
 
     let user = Zotero.Prefs.get('sync.server.username')
     user = user ? `${user}, ` : ''
@@ -154,6 +160,7 @@ function zotero_itemmenu_popupshowing() {
   const selected = Zotero.getActiveZoteroPane().getSelectedItems()
 
   document.getElementById('edtechhub-assign-key').hidden = Zotero.EdTechHub.ready.isPending() || ! selected.find(item => item.isRegularItem())
+  document.getElementById('edtechhub-save-to-note').hidden = Zotero.EdTechHub.ready.isPending() || ! selected.find(item => item.isRegularItem())
 
   document.getElementById('edtechhub-duplicate-attachment').hidden =
     Zotero.EdTechHub.ready.isPending()
@@ -211,7 +218,10 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
   }
 
   public run(method, ...args) {
-    this[method].apply(this, args).catch(err => debug(method, err))
+    this[method].apply(this, args).catch(err => {
+      debug(method, err)
+      flash(err.message)
+    })
   }
 
   public async assignKey() {
@@ -262,6 +272,18 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
         this.setArchiveLocation(item, archiveLocation.filter(al => al).join(';'))
         await item.saveTx()
       }
+    }
+  }
+
+  public async saveToNote() {
+    const items = Zotero.getActiveZoteroPane().getSelectedItems().filter(item => item.isRegularItem())
+
+    for (const item of items) {
+      const note = new Zotero.Item('note')
+      note.libraryID = item.libraryID
+      note.setNote(`<pre>${Zotero.Utilities.text2html(await asRIS(item))}</pre>`)
+      note.parentKey = item.key
+      await note.saveTx()
     }
   }
 
