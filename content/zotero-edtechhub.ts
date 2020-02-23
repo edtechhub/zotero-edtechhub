@@ -120,10 +120,10 @@ function debug(msg, err = null) {
 
     if (err.stack) msg += `\n${err.stack}`
 
-    Zotero.debug(`{EdTech hub} error: ${msg}`, 1)
+    Zotero.debug(`EdTechHub: error: ${msg}`, 1)
 
   } else {
-    Zotero.debug(`{EdTech hub}: ${msg}`)
+    Zotero.debug(`EdTechHub: ${msg}`)
 
   }
 }
@@ -171,6 +171,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     archiveLocation: number
     DOI: number
   }
+  private translators: { file: string, translatorID: string}[] = []
 
   constructor() {
     const ready = Zotero.Promise.defer()
@@ -348,6 +349,31 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     if (!addons.find(addon => addon.startsWith('ZotFile '))) flash('ZotFile not installed', 'The ZotFile plugin is not available, please install it from http://zotfile.com/')
     if (!addons.find(addon => addon.startsWith('Zutilo Utility for Zotero '))) flash('Zutilo not installed', 'The Zutilo plugin is not available, please install it from https://github.com/willsALMANJ/Zutilo')
 
+    debug('installing translators')
+    await this.installTranslator('Bjoern2A_BjoernCitationStringTagged.js')
+    await this.installTranslator('Bjoern2B_BjoernCitationStringTagged.js')
+    await this.installTranslator('Bjoern7_ETHref.js')
+    await Zotero.Translators.reinit()
+  }
+
+  private async installTranslator(name) {
+    const translator = Zotero.File.getContentsFromURL(`resource://zotero-edtechhub/${name}`)
+    const sep = '\n}\n'
+    const split = translator.indexOf(sep) + sep.length
+    const header = JSON.parse(translator.slice(0, split))
+    const code = translator.slice(split)
+
+    await Zotero.Translators.save(header, code)
+
+    this.translators.push({ file: header.label + '.js', translatorID: header.translatorID })
+
+    debug(`installed ${name}`)
+  }
+
+  private uninstallTranslator(name) {
+    const translator = Zotero.getTranslatorsDirectory()
+    translator.append(name)
+    if (translator.exists()) translator.remove(false)
   }
 
   public async debugLog() {
@@ -378,6 +404,42 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
 }
 
 export = EdTechHub
+
+Components.utils.import('resource://gre/modules/AddonManager.jsm')
+declare const AddonManager: any
+AddonManager.addAddonListener({
+  onUninstalling(addon, needsRestart) {
+    if (addon.id !== 'edtechhub@edtechhub.org') return null
+
+    const quickCopy = Zotero.Prefs.get('export.quickCopy.setting')
+    for (const { file, translatorID } of EdTechHub.translators) {
+      if (quickCopy === `export=${translatorID}`) Zotero.Prefs.clear('export.quickCopy.setting')
+
+      try {
+        EdTechHub.uninstall(file)
+      } catch (error) {}
+    }
+
+    EdTechHub.uninstalled = true
+  },
+
+  onDisabling(addon, needsRestart) { this.onUninstalling(addon, needsRestart) },
+
+  onOperationCancelled(addon, needsRestart) {
+    if (addon.id !== 'edtechhub@edtechhub.org') return null
+    // tslint:disable-next-line:no-bitwise
+    if (addon.pendingOperations & (AddonManager.PENDING_UNINSTALL | AddonManager.PENDING_DISABLE)) return null
+
+    // uninstall cancelled, re-do installation
+    for (const { file } of EdTechHub.translators) {
+      try {
+        EdTechHub.install(file)
+      } catch (err) {}
+    }
+
+    delete EdTechHub.uninstalled
+  },
+})
 
 // otherwise this entry point won't be reloaded: https://github.com/webpack/webpack/issues/156
 delete require.cache[module.id]
