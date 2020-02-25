@@ -1,6 +1,6 @@
 {
   "name": "zotero-edtechhub",
-  "version": "0.0.18",
+  "version": "0.0.19",
   "description": "EdTech hub companion plugin for Zotero",
   "scripts": {
     "lint": "tslint -t stylish --project .",
@@ -16,7 +16,7 @@
     "url": "https://github.com/edtechhub/zotero-edtechhub.git"
   },
   "author": {
-    "name": "Björn Haßler",
+    "name": "Björn Haßler and Emiliano Heyns",
     "email": "bjoern@edtechhub.org"
   },
   "bugs": {
