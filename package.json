@@ -1,6 +1,6 @@
 {
   "name": "zotero-edtechhub",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "description": "EdTech hub companion plugin for Zotero",
   "scripts": {
     "lint": "tslint -t stylish --project .",
