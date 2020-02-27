@@ -40,7 +40,7 @@
   },
   "xpi": {
     "name": "EdTechHub for Zotero",
-    "updateLink": "https://github.com/edtechhub/zotero-edtechhub/releases/download/v{version}/zotero-auto-index-{version}.xpi",
+    "updateLink": "https://github.com/edtechhub/zotero-edtechhub/releases/download/v{version}/zotero-edtechhub-{version}.xpi",
     "releaseURL": "https://github.com/edtechhub/zotero-edtechhub/releases/download/release/"
   }
 }
