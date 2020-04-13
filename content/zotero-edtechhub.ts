@@ -89,17 +89,16 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
   try {
     await Zotero.Schema.schemaUpdatePromise
 
-    // preserve archiveLocation of all merged items
-    const archiveLocation = Zotero.EdTechHub.getArchiveLocation(item).split(';')
-    debug(`merge-archiveLocation: pre archiveLocation = ${JSON.stringify(archiveLocation)}`)
+    // preserve AlsoKnownAs of all merged items
+    const alsoKnownAs = Zotero.EdTechHub.getAlsoKnownAs(item).split(';')
     for (const otherItem of otherItems) {
-      for (const al of Zotero.EdTechHub.getArchiveLocation(otherItem).split(';')) {
-        debug(`merge-archiveLocation: + ${JSON.stringify(al)}`)
-        if (al && !archiveLocation.includes(al)) archiveLocation.push(al)
+      for (const aka of Zotero.EdTechHub.getAlsoKnownAs(otherItem).split(';')) {
+        debug(`merge-alsoKnownAs: + ${JSON.stringify(aka)}`)
+        if (aka && !alsoKnownAs.includes(aka)) alsoKnownAs.push(aka)
       }
     }
-    debug(`merge-archiveLocation: post archiveLocation = ${JSON.stringify(archiveLocation)}`)
-    Zotero.EdTechHub.setArchiveLocation(item, archiveLocation.filter(al => al).join(';'))
+    debug(`merge-alsoKnownAs: post alsoKnownAs = ${JSON.stringify(alsoKnownAs)}`)
+    Zotero.EdTechHub.setAlsoKnownAs(item, alsoKnownAs.filter(aka => aka).join(';'))
 
     // keep RIS copy of all merged items
     const ris = await asRIS([item, ...otherItems])
@@ -192,8 +191,8 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
 
   private initialized: boolean = false
   private fieldID: {
-    archiveLocation: number
-    DOI: number
+    DOI: number,
+    extra: number,
   }
   private translators: { file: string, translatorID: string}[] = []
 
@@ -211,12 +210,12 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     }, false)
   }
 
-  private getArchiveLocation(item) {
-    if (Zotero.ItemFields.isValidForType(this.fieldID.archiveLocation, item.itemTypeID)) return item.getField('archiveLocation') || ''
+  private getAlsoKnownAs(item) {
+    if (!Zotero.ItemFields.isValidForType(this.fieldID.extra, item.itemTypeID)) return ''
 
     let m
     for (const line of (item.getField('extra') || '').split('\n')) {
-      if (m = line.match(/^archiveLocation:(.*)/i)) {
+      if (m = line.match(/^EdTechHub.ItemAlsoKnownAs:(.*)/i)) {
         return m[1].trim()
       }
     }
@@ -224,15 +223,9 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     return ''
   }
 
-  private setArchiveLocation(item, archiveLocation) {
-    const extra = (item.getField('extra') || '').split('\n').filter(line => ! line.match(/^archiveLocation:/i)).join('\n').trim()
-
-    if (Zotero.ItemFields.isValidForType(this.fieldID.archiveLocation, item.itemTypeID)) {
-      item.setField('archiveLocation', archiveLocation)
-      item.setField('extra', extra)
-    } else {
-      item.setField('extra', (extra + `\narchiveLocation: ${archiveLocation}`).trim())
-    }
+  private setAlsoKnownAs(item, alsoKnownAs) {
+    const extra = (item.getField('extra') || '').split('\n').filter(line => ! line.match(/^EdTechHub.ItemAlsoKnownAs:/i)).join('\n').trim()
+    item.setField('extra', (extra + `\nEdTechHub.ItemAlsoKnownAs: ${alsoKnownAs}`).trim())
   }
 
   public run(method, ...args) {
@@ -266,17 +259,17 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
 
       doi.assign = doi.short || doi.long
 
-      const archiveLocation = this.getArchiveLocation(item).split(';')
+      const alsoKnownAs = this.getAlsoKnownAs(item).split(';')
       let save = false
 
-      if (doi.assign && !archiveLocation.includes(doi.assign)) {
-        archiveLocation.push(doi.assign)
+      if (doi.assign && !alsoKnownAs.includes(doi.assign)) {
+        alsoKnownAs.push(doi.assign)
         save = true
       }
 
       const key = `${libraryKey(item)}:${item.key}`
-      if (!archiveLocation.includes(key)) {
-        archiveLocation.push(key)
+      if (!alsoKnownAs.includes(key)) {
+        alsoKnownAs.push(key)
         save = true
       }
 
@@ -287,7 +280,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
       }
       */
       if (save) {
-        this.setArchiveLocation(item, archiveLocation.filter(al => al).join(';'))
+        this.setAlsoKnownAs(item, alsoKnownAs.filter(aka => aka).join(';'))
         await item.saveTx()
       }
     }
@@ -326,7 +319,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
       baseNameWithoutExtension,
       Zotero.Prefs.get('sync.server.username'),
       (new Date).toISOString().replace(/T.*/, '').replace(/-/g, ''),
-      parent ? this.getArchiveLocation(parent).split(';')[0].replace(/[^a-z0-9]+/gi, '_') : null,
+      parent ? this.getAlsoKnownAs(parent).split(';')[0].replace(/[^a-z0-9]+/gi, '_') : null,
     ].filter(bn => bn).join('-'))
 
     switch (attachment.attachmentLinkMode) {
@@ -380,8 +373,8 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     progressWin.startCloseTimer(500) // tslint:disable-line:no-magic-numbers
 
     this.fieldID = {
-      archiveLocation: Zotero.ItemFields.getID('archiveLocation'),
       DOI: Zotero.ItemFields.getID('DOI'),
+      extra: Zotero.ItemFields.getID('extra'),
     }
 
     ready.resolve(true)
