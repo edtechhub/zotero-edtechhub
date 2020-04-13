@@ -23,12 +23,25 @@ async function moveArchiveLocation(item) {
   let save = false
   let extra = (item.getField('extra') || '').split('\n')
   if (extra.length == 1 && !extra[0]) extra = []
-
+  /*
+  let prevItemAlsoKnownAs = ''
+  check extra for EdTechHub.ItemAlsoKnownAs
+  if already there, then 
+       prevItemAlsoKnownAs = value
+       remove line from extra
+       
+  */
   if (Zotero.ItemFields.isValidForType(fieldID.archiveLocation, item.itemTypeID)) {
     const archiveLocation = item.getField('archiveLocation') || ''
     if (archiveLocation) {
+    // Better if this was:
+    // if (archiveLocation &&  archiveLocation.match(/\b\d{7}:[A-Z\d]{8}\b/) {
       item.setField('archiveLocation', '')
-      extra.push(`EdTechHub.ItemAlsoKnownAs: ${archiveLocation}`)
+      // if (prevItemAlsoKnownAs == '') {
+           extra.push(`EdTechHub.ItemAlsoKnownAs: ${archiveLocation}`)
+      // } else {
+      //   extra.push(`EdTechHub.ItemAlsoKnownAs: ${prevItemAlsoKnownAs};${archiveLocation}`)
+      // }
       save = true
     }
   }
