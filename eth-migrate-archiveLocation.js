@@ -21,48 +21,46 @@ async function moveArchiveLocation(item) {
   if (! Zotero.ItemFields.isValidForType(fieldID.extra, item.itemTypeID)) return
 
   let save = false
+
+  const aka = []
+
   let extra = (item.getField('extra') || '').split('\n')
   if (extra.length == 1 && !extra[0]) extra = []
-  /*
-  let prevItemAlsoKnownAs = ''
-  check extra for EdTechHub.ItemAlsoKnownAs
-  if already there, then 
-       prevItemAlsoKnownAs = value
-       remove line from extra
-       
-  */
+  extra = extra.filter(line => {
+    if (line.match(/^(archiveLocation|EdTechHub.ItemAlsoKnownAs):/)) {
+      aka.push(line.replace(/.*:/, '').trim())
+      save = save || line.startsWith('archiveLocation:')
+      return false
+    } else {
+      return true
+    }
+  })
+
   if (Zotero.ItemFields.isValidForType(fieldID.archiveLocation, item.itemTypeID)) {
     const archiveLocation = item.getField('archiveLocation') || ''
-    if (archiveLocation) {
-    // Better if this was:
-    // if (archiveLocation &&  archiveLocation.match(/\b\d{7}:[A-Z\d]{8}\b/) {
+    if (archiveLocation.match(/\b\d{7}:[A-Z\d]{8}\b/)) {
       item.setField('archiveLocation', '')
-      // if (prevItemAlsoKnownAs == '') {
-           extra.push(`EdTechHub.ItemAlsoKnownAs: ${archiveLocation}`)
-      // } else {
-      //   extra.push(`EdTechHub.ItemAlsoKnownAs: ${prevItemAlsoKnownAs};${archiveLocation}`)
-      // }
+      aka.push(archiveLocation)
       save = true
     }
   }
 
-  extra = extra.map(line => {
-    const renamed = line.replace(/^archiveLocation:/, 'EdTechHub.ItemAlsoKnownAs:')
-    save = save || renamed !== line
-    return renamed
-  })
-
   if (save) {
-    item.setField('extra', extra.join('\n'))
+    item.setField('extra', (extra.join('\n') + `\nEdTechHub.ItemAlsoKnownAs:${aka.join(';')}`).trim())
     await item.save()
   }
   return save
 }
 
 let saved = 0
-await Zotero.DB.executeTransaction(async () => {
-  for (const item of items) {
-    if (await moveArchiveLocation(item)) saved += 1
-  }
-})
+try {
+  await Zotero.DB.executeTransaction(async () => {
+    for (const item of items) {
+      if (await moveArchiveLocation(item)) saved += 1
+    }
+    // throw new Error('abort')
+  })
+} catch (err) {
+  return err.message
+}
 return saved
