@@ -57,6 +57,7 @@ let saved = 0
 try {
   await Zotero.DB.executeTransaction(async () => {
     for (const item of items) {
+      await item.loadAllData()
       if (await moveArchiveLocation(item)) saved += 1
     }
     // throw new Error('abort')
