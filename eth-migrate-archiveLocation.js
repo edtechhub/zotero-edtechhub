@@ -48,7 +48,7 @@ async function moveArchiveLocation(item) {
   }
 
   if (save) {
-    item.setField('extra', (extra.join('\n') + `\nEdTechHub.ItemAlsoKnownAs:${aka.join(';')}`).trim())
+    item.setField('extra', (extra.join('\n') + `\nEdTechHub.ItemAlsoKnownAs: ${aka.join(';')}`).trim())
     await item.save()
   }
   return save
