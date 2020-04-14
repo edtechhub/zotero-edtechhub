@@ -9,7 +9,7 @@
 
 let items = []
 for (const lib of libraries = Zotero.Libraries.getAll()) {
-  console.log(lib.libraryID); 
+  Zotero.debug(lib.libraryID); 
   items = items.concat(await Zotero.Items.getAll(lib.libraryID))
 }
 
