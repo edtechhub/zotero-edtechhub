@@ -8,8 +8,9 @@
 */
 
 let items = []
+const whitelist = ['My Library', 'other'] // 'My Library' is a fixed name as far as I can tell
 for (const lib of libraries = Zotero.Libraries.getAll()) {
-  Zotero.debug(lib.libraryID); 
+  if (!whitelist.includes(lib.name)) continue
   items = items.concat(await Zotero.Items.getAll(lib.libraryID))
 }
 
