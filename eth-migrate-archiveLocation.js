@@ -9,6 +9,7 @@
 
 let items = []
 for (const lib of libraries = Zotero.Libraries.getAll()) {
+  console.log(lib.libraryID); 
   items = items.concat(await Zotero.Items.getAll(lib.libraryID))
 }
 
@@ -61,6 +62,6 @@ try {
     // throw new Error('abort')
   })
 } catch (err) {
-  return err.message
+  return 'Saved: '+saved+', ERROR: '+err.message
 }
-return saved
+return 'Done: '+saved
