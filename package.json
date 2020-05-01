@@ -9,7 +9,9 @@
     "postbuild": "zotero-plugin-zipup build zotero-edtechhub",
     "release": "zotero-plugin-release",
     "postversion": "git push --follow-tags",
-    "start": "./start.sh"
+    "start": "./start.sh",
+    "snyk-protect": "snyk protect",
+    "prepare": "npm run snyk-protect"
   },
   "repository": {
     "type": "git",
@@ -36,12 +38,14 @@
     "typescript": "^3.8.3",
     "webpack": "^4.42.1",
     "webpack-cli": "^3.3.11",
-    "zotero-plugin": "^1.0.14"
+    "zotero-plugin": "^1.0.14",
+    "snyk": "^1.316.1"
   },
   "xpi": {
     "name": "EdTechHub for Zotero",
     "updateLink": "https://github.com/edtechhub/zotero-edtechhub/releases/download/v{version}/zotero-edtechhub-{version}.xpi",
     "releaseURL": "https://github.com/edtechhub/zotero-edtechhub/releases/download/release/",
     "iconURL": "chrome://zotero-edtechhub/skin/edtechhub.png"
-  }
+  },
+  "snyk": true
 }
