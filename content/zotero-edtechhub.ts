@@ -90,16 +90,21 @@ async function asRIS(items) {
 }
 
 $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
-  debug('merge:')
   try {
     await Zotero.Schema.schemaUpdatePromise
 
     // preserve AlsoKnownAs of all merged items
     const alsoKnownAs = Zotero.EdTechHub.getAlsoKnownAs(item).split(';')
+    for (const id of this.relations(item)) {
+      if (!alsoKnownAs.includes(id)) alsoKnownAs.push(id)
+    }
     for (const otherItem of otherItems) {
       for (const aka of Zotero.EdTechHub.getAlsoKnownAs(otherItem).split(';')) {
         debug(`merge-alsoKnownAs: + ${JSON.stringify(aka)}`)
         if (aka && !alsoKnownAs.includes(aka)) alsoKnownAs.push(aka)
+      }
+      for (const id of this.relations(otherItem)) {
+        if (!alsoKnownAs.includes(id)) alsoKnownAs.push(id)
       }
     }
     debug(`merge-alsoKnownAs: post alsoKnownAs = ${JSON.stringify(alsoKnownAs)}`)
@@ -228,6 +233,11 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     return ''
   }
 
+  private relations(item) {
+    const relations = item.getRelations()
+    return Array.from(new Set((relations['dc:relation'] || []).map(lib_and_key).concat((relations['dc:replaces'] || []).map(lib_and_key))))
+  }
+
   private setAlsoKnownAs(item, alsoKnownAs) {
     const extra = (item.getField('extra') || '').split('\n').filter(line => ! line.match(/^EdTechHub.ItemAlsoKnownAs:/i)).join('\n').trim()
     item.setField('extra', (extra + `\nEdTechHub.ItemAlsoKnownAs: ${alsoKnownAs}`).trim())
@@ -278,15 +288,10 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
         save = true
       }
 
-      const relations = item.getRelations()
-      for (const relation of ['dc:relation', 'dc:replaces']) {
-        if (relations[relation]) {
-          for (const id of relations[relation].map(lib_and_key)) {
-            if (!alsoKnownAs.includes(id)) {
-              alsoKnownAs.push(id)
-              save = true
-            }
-          }
+      for (const id of this.relations(item)) {
+        if (!alsoKnownAs.includes(id)) {
+          alsoKnownAs.push(id)
+          save = true
         }
       }
 
