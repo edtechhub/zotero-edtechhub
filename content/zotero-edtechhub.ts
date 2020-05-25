@@ -46,6 +46,11 @@ function isShortDOI(ShortDOI) { // tslint:disable-line:variable-name
   return ShortDOI.match(/^10\/[a-z0-9]+$/)
 }
 
+function lib_and_key(uri) {
+  const m = uri.match(/^http:\/\/zotero.org\/(?:users|groups)\/(?:local\/)?(\w+)\/items\/(\w+)$/)
+  return m ? `${m[1]}:${m[2]}` : ''
+}
+
 function toClipboard(text) {
   const clipboard = Components.classes['@mozilla.org/widget/clipboard;1'].getService(Components.interfaces.nsIClipboard)
   const transferable = Components.classes['@mozilla.org/widget/transferable;1'].createInstance(Components.interfaces.nsITransferable)
@@ -273,7 +278,17 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
         save = true
       }
 
-      debug('assignKey: ' + JSON.stringify({...doi, key, save }))
+      const relations = item.getRelations()
+      for (const relation of ['dc:relation', 'dc:replaces']) {
+        if (relations[relation]) {
+          for (const id of relations[relation].map(lib_and_key)) {
+            if (!alsoKnownAs.includes(id)) {
+              alsoKnownAs.push(id)
+              save = true
+            }
+          }
+        }
+      }
 
       /*
       if (!key && Zotero.ShortDOI && item.getTags().find(tag => [Zotero.ShortDOI.tag_invalid, Zotero.ShortDOI.tag_multiple, Zotero.ShortDOI.tag_nodoi].includes(tag.tag))) {
