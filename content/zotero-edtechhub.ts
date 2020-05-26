@@ -73,6 +73,12 @@ async function asRIS(items) {
   return await translate(items, '32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7') // RIS
 }
 
+function itemKey(uri) {
+  const m = uri.match(/^http:\/\/zotero.org\/(?:users|groups)\/(?:local\/)?(\w+)\/items\/(\w+)$/)
+  if (!m) return null
+  return `${m[1]}:${m[2]}`
+}
+
 function getRelations(item, alsoKnownAs) {
   let save = false
   const itemRelations = item.getRelations()
@@ -81,11 +87,8 @@ function getRelations(item, alsoKnownAs) {
     if (!Array.isArray(relations)) continue
 
     for (const uri of relations) {
-      const m = uri.match(/^http:\/\/zotero.org\/(?:users|groups)\/(?:local\/)?(\w+)\/items\/(\w+)$/)
-      if (!m) continue
-      const aka = `${m[1]}:${m[2]}`
-      if (alsoKnownAs.includes(aka)) continue
-
+      const aka = itemKey(uri)
+      if (!aka || alsoKnownAs.includes(aka)) continue
       alsoKnownAs.push(aka)
       save = true
     }
@@ -231,7 +234,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
       }
     }
 
-    return '' + item.key
+    return itemKey(item.uri)
   }
 
   private setAlsoKnownAs(item, alsoKnownAs) {
