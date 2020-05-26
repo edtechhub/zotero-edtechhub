@@ -27,17 +27,6 @@ function flash(title, body = null, timeout = 8) {
   }
 }
 
-function notify(events, handler) {
-  Zotero.Notifier.registerObserver({
-    notify(...args) {
-      Zotero.Schema.schemaUpdatePromise
-        .then(() => handler.apply(null, args))
-        .then(err => debug(`notify: finished ${JSON.stringify(args)}`))
-        .catch(err => debug(`notify: error ${JSON.stringify(args)}`, err))
-    },
-  }, (typeof events === 'string') ? [ events ] : events, 'EdTechHub', 1)
-}
-
 function libraryKey(item) {
   return Zotero.URI.getLibraryPath(item.libraryID || Zotero.Libraries.userLibraryID).replace(/.*\//, '')
 }
@@ -84,18 +73,40 @@ async function asRIS(items) {
   return await translate(items, '32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7') // RIS
 }
 
+function getRelations(item, alsoKnownAs) {
+  let save = false
+  const itemRelations = item.getRelations()
+  for (let relations of [itemRelations['dc:replaces'], itemRelations['owl:sameAs']]) {
+    if (typeof relations === 'string') relations = [ relations ]
+    if (!Array.isArray(relations)) continue
+
+    for (const uri of relations) {
+      const m = uri.match(/^http:\/\/zotero.org\/(?:users|groups)\/(?:local\/)?(\w+)\/items\/(\w+)$/)
+      if (!m) continue
+      const aka = `${m[1]}:${m[2]}`
+      if (alsoKnownAs.includes(aka)) continue
+
+      alsoKnownAs.push(aka)
+      save = true
+    }
+  }
+
+  return save
+}
+
 $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
-  debug('merge:')
   try {
     await Zotero.Schema.schemaUpdatePromise
 
     // preserve AlsoKnownAs of all merged items
     const alsoKnownAs = Zotero.EdTechHub.getAlsoKnownAs(item).split(';')
+    getRelations(item, alsoKnownAs)
     for (const otherItem of otherItems) {
       for (const aka of Zotero.EdTechHub.getAlsoKnownAs(otherItem).split(';')) {
         debug(`merge-alsoKnownAs: + ${JSON.stringify(aka)}`)
         if (aka && !alsoKnownAs.includes(aka)) alsoKnownAs.push(aka)
       }
+      getRelations(otherItem, alsoKnownAs)
     }
     debug(`merge-alsoKnownAs: post alsoKnownAs = ${JSON.stringify(alsoKnownAs)}`)
     Zotero.EdTechHub.setAlsoKnownAs(item, alsoKnownAs.filter(aka => aka).join(';'))
@@ -273,7 +284,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
         save = true
       }
 
-      debug('assignKey: ' + JSON.stringify({...doi, key, save }))
+      if (getRelations(item, alsoKnownAs)) save = true
 
       /*
       if (!key && Zotero.ShortDOI && item.getTags().find(tag => [Zotero.ShortDOI.tag_invalid, Zotero.ShortDOI.tag_multiple, Zotero.ShortDOI.tag_nodoi].includes(tag.tag))) {
@@ -372,6 +383,8 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     progress.setText('Ready')
     progressWin.startCloseTimer(500) // tslint:disable-line:no-magic-numbers
 
+    Zotero.Notifier.registerObserver(this, ['item'], 'EdTechHub', 1)
+
     this.fieldID = {
       DOI: Zotero.ItemFields.getID('DOI'),
       extra: Zotero.ItemFields.getID('extra'),
@@ -410,6 +423,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
 
     debug(`installed ${name}`)
   }
+
   private async installTranslators() {
     debug('installing translators')
     await this.installTranslator('Bjoern2A_BjoernCitationStringTagged.js')
@@ -451,6 +465,30 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
 
     const responses = await Promise.all(log)
     alert(responses.map(url => url.trim().replace(/.*\//, '')).join('+'))
+  }
+
+  protected async notify(action, type, ids, extraData) {
+    if (type !== 'item') return // should never happen
+
+    switch (action) {
+      case 'delete':
+      case 'trash':
+        break
+
+      case 'add':
+      case 'modify':
+        const items = await Zotero.Items.getAsync(ids)
+        for (const item of items) {
+          await item.loadAllData()
+          const relations = []
+          getRelations(item, relations)
+          debug(`notify:${type}.${action}: ${JSON.stringify(relations)}`)
+        }
+        break
+
+      default:
+        return
+    }
   }
 }
 
