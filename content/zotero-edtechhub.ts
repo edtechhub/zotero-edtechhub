@@ -220,7 +220,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
       }
     }
 
-    return '' + item.id
+    return '' + item.key
   }
 
   private setAlsoKnownAs(item, alsoKnownAs) {
