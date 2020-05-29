@@ -27,6 +27,8 @@ function flash(title, body = null, timeout = 8) {
   }
 }
 
+const prefix = 'EdTechHub.ItemAlsoKnownAs:'
+
 function libraryKey(item) {
   return Zotero.URI.getLibraryPath(item.libraryID || Zotero.Libraries.userLibraryID).replace(/.*\//, '')
 }
@@ -49,6 +51,16 @@ function toClipboard(text) {
   clipboard.setData(transferable, null, Components.interfaces.nsIClipboard.kGlobalClipboard)
 }
 
+async function put(url, body) {
+  if (await OS.File.exists(OS.Path.join(Zotero.EdTechHub.dir, 'enable.txt'))) {
+    const path = OS.Path.join(Zotero.EdTechHub.dir, url.split('/').reverse()[0])
+    await Zotero.File.putContentsAsync(path, body)
+    return path
+  }
+
+  const response = await fetch(url, { method: 'PUT', body })
+  return await response.text()
+}
 
 function translate(items, translator) { // returns a promise
   const deferred = Zotero.Promise.defer()
@@ -79,40 +91,33 @@ function itemKey(uri) {
   return `${m[1]}:${m[2]}`
 }
 
-function getRelations(item, alsoKnownAs) {
-  let save = false
+function getRelations(item, alsoKnownAs: AlsoKnownAs) {
   const itemRelations = item.getRelations()
   for (let relations of [itemRelations['dc:replaces'], itemRelations['owl:sameAs']]) {
     if (typeof relations === 'string') relations = [ relations ]
     if (!Array.isArray(relations)) continue
 
     for (const uri of relations) {
-      const aka = itemKey(uri)
-      if (!aka || alsoKnownAs.includes(aka)) continue
-      alsoKnownAs.push(aka)
-      save = true
+      alsoKnownAs.add(itemKey(uri))
     }
   }
-
-  return save
 }
 
 $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
-  try {
-    await Zotero.Schema.schemaUpdatePromise
+  let alsoKnownAs: AlsoKnownAs = null
+  let history: string = null
 
+  try {
+    alsoKnownAs = Zotero.EdTechHub.getAlsoKnownAs(item)
     // preserve AlsoKnownAs of all merged items
-    const alsoKnownAs = Zotero.EdTechHub.getAlsoKnownAs(item).split(';')
     getRelations(item, alsoKnownAs)
     for (const otherItem of otherItems) {
-      for (const aka of Zotero.EdTechHub.getAlsoKnownAs(otherItem).split(';')) {
-        debug(`merge-alsoKnownAs: + ${JSON.stringify(aka)}`)
-        if (aka && !alsoKnownAs.includes(aka)) alsoKnownAs.push(aka)
+      for (const id of Zotero.EdTechHub.getAlsoKnownAs(otherItem)) {
+        alsoKnownAs.add(id)
       }
       getRelations(otherItem, alsoKnownAs)
     }
-    debug(`merge-alsoKnownAs: post alsoKnownAs = ${JSON.stringify(alsoKnownAs)}`)
-    Zotero.EdTechHub.setAlsoKnownAs(item, alsoKnownAs.filter(aka => aka).join(';'))
+    debug(`merge-alsoKnownAs: post alsoKnownAs = ${alsoKnownAs.toString()} = ${item.getField('extra')}`)
 
     // keep RIS copy of all merged items
     const ris = await asRIS([item, ...otherItems])
@@ -120,25 +125,38 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
     let user = Zotero.Prefs.get('sync.server.username')
     user = user ? `${user}, ` : ''
 
-    let body = `<div><b>Item history (${user}${new Date})</b></div>\n`
-    body += `<pre>${Zotero.Utilities.text2html(ris)}</pre>\n`
-    body += '<div>\n'
-    body += `<p>group:</td><td>${libraryKey(item)}</p>\n`
-    body += `<p>itemKey:</td><td>${item.key}</p>\n`
-    body += `<p>itemKeyOld:</td><td>${otherItems.map(i => i.key).join(', ')}</p>\n`
-    body += '</div>\n'
-
-    const note = new Zotero.Item('note')
-    note.libraryID = item.libraryID
-    note.setNote(body)
-    note.parentKey = item.key
-    await note.saveTx()
-
+    history = `<div><b>Item history (${user}${new Date})</b></div>\n`
+    history += `<pre>${Zotero.Utilities.text2html(ris)}</pre>\n`
+    history += '<div>\n'
+    history += `<p>group:</td><td>${libraryKey(item)}</p>\n`
+    history += `<p>itemKey:</td><td>${item.key}</p>\n`
+    history += `<p>itemKeyOld:</td><td>${otherItems.map(i => i.key).join(', ')}</p>\n`
+    history += '</div>\n'
   } catch (err) {
-    debug('merge:', err)
+    debug('merge-alsoKnownAs: error=', err)
   }
 
-  return original.apply(this, arguments)
+  debug('merge-alsoKnownAs: merging...')
+  const merged = await original.apply(this, arguments)
+
+  try {
+    if (alsoKnownAs?.changed()) {
+      Zotero.EdTechHub.setAlsoKnownAs(item, alsoKnownAs)
+      await item.saveTx()
+    }
+    if (history) {
+      const note = new Zotero.Item('note')
+      note.libraryID = item.libraryID
+      note.setNote(history)
+      note.parentKey = item.key
+      await note.saveTx()
+      debug('merge-alsoKnownAs: note saved')
+    }
+  } catch (err) {
+    debug('merge-alsoKnownAs: error=', err)
+  }
+
+  return merged
 })
 
 function debug(msg, err = null) {
@@ -162,28 +180,6 @@ function debug(msg, err = null) {
   }
 }
 
-function post(url, body) {
-  return new Promise(function(resolve, reject) { // tslint:disable-line:only-arrow-functions
-    const xhr = Components.classes['@mozilla.org/xmlextras/xmlhttprequest;1'].createInstance()
-
-    xhr.open('POST', url)
-
-    xhr.onload = function() {
-      if (this.status >= 200 && this.status < 300) { // tslint:disable-line:no-magic-numbers
-        resolve(xhr.response)
-      } else {
-        reject({ status: this.status, statusText: xhr.statusText })
-      }
-    }
-
-    xhr.onerror = function() {
-      reject({ status: this.status, statusText: xhr.statusText })
-    }
-
-    xhr.send(body)
-  })
-}
-
 function zotero_itemmenu_popupshowing() {
   const selected = Zotero.getActiveZoteroPane().getSelectedItems()
 
@@ -200,8 +196,51 @@ function zotero_itemmenu_popupshowing() {
     || ! selected[0].getFilePath() // path does not exist
 }
 
+class AlsoKnownAs {
+  private size: number
+  private sep = ';'
+  private aka: Set<string>
+
+  constructor(init: string = '') {
+    this.aka = new Set
+    for (const id of init.split(this.sep)) {
+      this.aka.add(id)
+    }
+    this.size = this.aka.size
+  }
+
+  add(id: string) {
+    id = (id || '').trim()
+    if (id) this.aka.add(id)
+    return this
+  }
+
+  changed() {
+    return this.size !== this.aka.size
+  }
+
+  toString() {
+    // no idea why this empty element keeps appearing
+    return [...this.aka].filter(aka => aka).join(this.sep)
+  }
+
+  first() {
+    return [...this.aka][0]
+  }
+
+  *iterator() {
+    for (const id of [...this.aka]) {
+      yield id
+    }
+  }
+  [Symbol.iterator]() {
+    return this.iterator()
+  }
+}
+
 const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variable-name
   public ready: Promise<boolean>
+  private dir: string
 
   private initialized: boolean = false
   private fieldID: {
@@ -215,8 +254,14 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     this.ready = ready.promise
 
     window.addEventListener('load', event => {
-      this.run('init', ready)
-      document.getElementById('zotero-itemmenu').addEventListener('popupshowing', zotero_itemmenu_popupshowing, false)
+      this.init(ready)
+        .then(() => {
+          document.getElementById('zotero-itemmenu').addEventListener('popupshowing', zotero_itemmenu_popupshowing, false)
+        })
+        .catch(err => {
+          debug('init failed', err)
+          flash(err.message)
+        })
     }, false)
 
     window.addEventListener('unload', event => {
@@ -225,28 +270,42 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
   }
 
   private getAlsoKnownAs(item) {
-    if (!Zotero.ItemFields.isValidForType(this.fieldID.extra, item.itemTypeID)) return ''
+    if (!Zotero.ItemFields.isValidForType(this.fieldID.extra, item.itemTypeID)) return new AlsoKnownAs
 
-    let m
     for (const line of (item.getField('extra') || '').split('\n')) {
-      if (m = line.match(/^EdTechHub.ItemAlsoKnownAs:(.*)/i)) {
-        return m[1].trim()
+      if (line.startsWith(prefix)) {
+        return new AlsoKnownAs(line.substring(prefix.length))
       }
     }
 
-    return itemKey(item.uri)
+    return (new AlsoKnownAs).add(itemKey(Zotero.URI.getItemURI(item)))
   }
 
-  private setAlsoKnownAs(item, alsoKnownAs) {
-    const extra = (item.getField('extra') || '').split('\n').filter(line => ! line.match(/^EdTechHub.ItemAlsoKnownAs:/i)).join('\n').trim()
-    item.setField('extra', (extra + `\nEdTechHub.ItemAlsoKnownAs: ${alsoKnownAs}`).trim())
+  private setAlsoKnownAs(item, alsoKnownAs: AlsoKnownAs) {
+    debug(`setAlsoKnownAs+ ${alsoKnownAs.toString()}`)
+    const extra = (item.getField('extra') || '')
+      .split('\n')
+      .filter(line => ! line.startsWith(prefix))
+      .concat(`${prefix} ${alsoKnownAs.toString()}`)
+      .join('\n')
+    debug(`setAlsoKnownAs: ${extra}`)
+    item.setField('extra', extra)
   }
 
   public run(method, ...args) {
-    this[method].apply(this, args).catch(err => {
-      debug(method, err)
-      flash(err.message)
-    })
+    debug(`requesting ${method}`);
+    (async () => {
+      await this.ready
+      debug(`running ${method}`)
+      try {
+        this[method].apply(this, args)
+        debug(`done ${method}`)
+      } catch (err) {
+        debug(`err ${method}`)
+        debug(method, err)
+        flash(err.message)
+      }
+    })()
   }
 
   public async assignKey() {
@@ -273,28 +332,20 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
 
       doi.assign = doi.short || doi.long
 
-      const alsoKnownAs = this.getAlsoKnownAs(item).split(';')
-      let save = false
+      const alsoKnownAs = this.getAlsoKnownAs(item)
 
-      if (doi.assign && !alsoKnownAs.includes(doi.assign)) {
-        alsoKnownAs.push(doi.assign)
-        save = true
-      }
+      alsoKnownAs.add(doi.assign)
+      alsoKnownAs.add(`${libraryKey(item)}:${item.key}`)
 
-      const key = `${libraryKey(item)}:${item.key}`
-      if (!alsoKnownAs.includes(key)) {
-        alsoKnownAs.push(key)
-        save = true
-      }
-
-      if (getRelations(item, alsoKnownAs)) save = true
+      getRelations(item, alsoKnownAs)
 
       /*
       if (!key && Zotero.ShortDOI && item.getTags().find(tag => [Zotero.ShortDOI.tag_invalid, Zotero.ShortDOI.tag_multiple, Zotero.ShortDOI.tag_nodoi].includes(tag.tag))) {
       }
       */
-      if (save) {
-        this.setAlsoKnownAs(item, alsoKnownAs.filter(aka => aka).join(';'))
+      debug('assignKey: ' + JSON.stringify({ changed: alsoKnownAs.changed(), aka: alsoKnownAs.toString() }))
+      if (alsoKnownAs.changed()) {
+        this.setAlsoKnownAs(item, alsoKnownAs)
         await item.saveTx()
       }
     }
@@ -333,7 +384,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
       baseNameWithoutExtension,
       Zotero.Prefs.get('sync.server.username'),
       (new Date).toISOString().replace(/T.*/, '').replace(/-/g, ''),
-      parent ? this.getAlsoKnownAs(parent).split(';')[0].replace(/[^a-z0-9]+/gi, '_') : null,
+      parent ? this.getAlsoKnownAs(parent).first().replace(/[^a-z0-9]+/gi, '_') : null,
     ].filter(bn => bn).join('-'))
 
     switch (attachment.attachmentLinkMode) {
@@ -385,6 +436,9 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     await Zotero.Schema.schemaUpdatePromise
     progress.setText('Ready')
     progressWin.startCloseTimer(500) // tslint:disable-line:no-magic-numbers
+
+    this.dir = OS.Path.join(Zotero.DataDirectory.dir, 'edtechhub')
+    await OS.File.makeDir(this.dir, { ignoreExisting: true })
 
     Zotero.Notifier.registerObserver(this, ['item'], 'EdTechHub', 1)
 
@@ -447,27 +501,27 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
   public async debugLog() {
     await this.ready
 
-    let body
+    const service = 'https://transfer.sh/'
 
     const log = []
 
-    // const service = 'https://httpbin.org/post'
-    const service = 'https://0x0.st'
-
     const items = Zotero.getActiveZoteroPane().getSelectedItems() || []
     if (items.length) {
-      body = new FormData()
-      const rdf = await translate(items, '14763d24-8ba0-45df-8f52-b8d1108e7ac9') // RDF
-      body.set('file', new Blob([ rdf ], { type: 'application/rdf' }), 'items.rdf')
-      log.push(post(service, body))
+      log.push(put(`${service}items.rdf`, await translate(items, '14763d24-8ba0-45df-8f52-b8d1108e7ac9'))) // RDF
+      const f = OS.Path.join(this.dir, 'items.rdf')
+
+
     }
 
-    body = new FormData()
-    body.set('file', new Blob([ (Zotero.getErrors(true).join('\n') + '\n\n' + Zotero.Debug.getConsoleViewerOutput()).trim() ], { type: 'text/plain' }), 'log.txt') // tslint:disable-line:prefer-template
-    log.push(post(service, body))
+    log.push(put(`${service}debug-log.txt`, Zotero.getErrors(true).concat(
+      '',
+      '',
+      Zotero.Debug.getConsoleViewerOutput()
+    ).join('\n').trim()))
 
     const responses = await Promise.all(log)
-    alert(responses.map(url => url.trim().replace(/.*\//, '')).join('+'))
+    debug(`debug log: ${JSON.stringify(responses)}`)
+    alert(responses.map(url => url.trim()).join('\n'))
   }
 
   protected async notify(action, type, ids, extraData) {
@@ -483,9 +537,8 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
         const items = await Zotero.Items.getAsync(ids)
         for (const item of items) {
           await item.loadAllData()
-          const relations = []
-          getRelations(item, relations)
-          debug(`notify:${type}.${action}: ${JSON.stringify(relations)}`)
+          const itemRelations = item.getRelations()
+          debug(`notify:${type}.${action}: ${JSON.stringify(itemRelations)}`)
         }
         break
 

@@ -2,7 +2,7 @@
   "compilerOptions": {
     "allowUnreachableCode": false,
     "importHelpers": true,
-    "target": "es2017",
+    "target": "es6",
     "disableSizeLimit": true,
     "module": "commonjs",
     "noImplicitAny": false,
@@ -10,7 +10,7 @@
     "preserveConstEnums": false,
     "sourceMap": false,
     "downlevelIteration": true,
-    "lib": [ "es2017", "dom" ],
+    "lib": [ "es6", "dom" ],
     "typeRoots": [
       "./typings",
       "./node_modules/@types"
