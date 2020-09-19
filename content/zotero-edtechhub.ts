@@ -67,6 +67,7 @@ function translate(items, translator) { // returns a promise
   const translation = new Zotero.Translate.Export()
   translation.setItems(items)
   translation.setTranslator(translator)
+  translation.setDisplayOptions({ exportNotes: false })
   translation.setHandler('done', (obj, success) => {
     if (success) {
       deferred.resolve(obj ? obj.string : '')
