@@ -24,7 +24,7 @@
   },
   "homepage": "https://github.com/edtechhub/zotero-edtechhub",
   "dependencies": {
-    "circular-dependency-plugin": "^5.2.0",
+    "circular-dependency-plugin": "^5.2.1",
     "post-compile-webpack-plugin": "^0.1.2",
     "request": "^2.88.2",
     "request-promise": "^4.2.6",
