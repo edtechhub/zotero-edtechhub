@@ -7,7 +7,7 @@ Install by downloading the [latest version](https://github.com/edtechhub/zotero-
 
 # EdTech hub companion plugin for Zotero
 
-This is a plugin for Zotero, developed by [@retorquere](https://github.com/retorquere) and [@bjohas](https://github.com/bjohas) for use in the EdTech Hub.
+This is a plugin for Zotero, developed by [@retorquere](https://github.com/retorquere) and [@bjohas](https://github.com/bjohas) for use in the EdTech Hub. Contributions by @ZainaSaadeddin and @sheraz-ishaq.
 
 
 # Features of the plugin
