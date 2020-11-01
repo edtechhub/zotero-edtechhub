@@ -199,12 +199,12 @@ function zotero_itemmenu_popupshowing() {
 
 class AlsoKnownAs {
   private size: number
-  private sep = ';'
+  private sep = '; '
   private aka: Set<string>
 
   constructor(init: string = '') {
     this.aka = new Set
-    for (const id of init.split(this.sep)) {
+    for (const id of init.split(this.sep.trim())) {
       this.aka.add(id)
     }
     this.size = this.aka.size
