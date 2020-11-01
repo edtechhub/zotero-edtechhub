@@ -199,14 +199,10 @@ function zotero_itemmenu_popupshowing() {
 
 class AlsoKnownAs {
   private size: number
-  private sep = '; '
   private aka: Set<string>
 
   constructor(init: string = '') {
-    this.aka = new Set
-    for (const id of init.split(this.sep.trim())) {
-      this.aka.add(id)
-    }
+    this.aka = new Set(init.split(init.includes('; ') ? /; +/ : ';').filter(aka => aka))
     this.size = this.aka.size
   }
 
@@ -222,15 +218,15 @@ class AlsoKnownAs {
 
   toString() {
     // no idea why this empty element keeps appearing
-    return [...this.aka].filter(aka => aka).join(this.sep)
+    return [...this.aka].sort().join('; ')
   }
 
   first() {
-    return [...this.aka][0]
+    return [...this.aka].sort()[0]
   }
 
   *iterator() {
-    for (const id of [...this.aka]) {
+    for (const id of [...this.aka].sort()) {
       yield id
     }
   }
