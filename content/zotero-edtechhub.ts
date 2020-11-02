@@ -202,7 +202,8 @@ class AlsoKnownAs {
   private aka: Set<string>
 
   constructor(init: string = '') {
-    this.aka = new Set(init.split(init.includes('; ') ? /; +/ : ';').filter(aka => aka))
+    // Changing syntax for separator in aka from ";" or "; " to " " (/ +/ to be precise). Only allow / +/ in future release.
+    this.aka = new Set(init.split(init.includes(';') ? /; */ : / +/).filter(aka => aka))
     this.size = this.aka.size
   }
 
@@ -218,7 +219,7 @@ class AlsoKnownAs {
 
   toString() {
     // no idea why this empty element keeps appearing
-    return [...this.aka].sort().join('; ')
+    return [...this.aka].sort().join(' ')
   }
 
   first() {
