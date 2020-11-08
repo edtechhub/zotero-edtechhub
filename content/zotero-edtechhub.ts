@@ -133,7 +133,6 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
     history += `<p>group:</td><td>${libraryKey(item)}</p>\n`
     history += `<p>itemKey:</td><td>${item.key}</p>\n`
     history += `<p>itemKeyOld:</td><td>${otherItems.map(i => i.key).join(', ')}</p>\n`
-    history += '</div>\n'
     // Add 'extra' to history - https://github.com/edtechhub/zotero-edtechhub/issues/60
   } catch (err) {
     debug('merge-alsoKnownAs: error=', err)
@@ -206,28 +205,19 @@ class AlsoKnownAs {
 
   constructor(init: string = '', prefixString: string = '') {
     try {
-      // Trim in the inbound string to remove spurious spaces from start/end
       init = init.trim()
       this.init = init
-      // debug('AlsoKnownAs.constructor (0a): ' + JSON.stringify({ item: this.aka, init: this.init.toString() }))
-      // Changing syntax for separator in aka from ";" or "; " to " " (/ +/ to be precise). Only allow / +/ in future release.
-      // this.aka = new Set(init.split(init.includes(';') ? /; */ : / +/).filter(aka => aka)) {
+
       if (prefixString === prefixLegacy) {
         this.aka = new Set(init.split(/; */).filter(aka => aka))
       } else {
         this.aka = new Set(init.split(/ +/).filter(aka => aka))
       }
-      debug('AlsoKnownAs.constructor (0b): ' + JSON.stringify({ item: this.aka, init: this.init.toString() }))
     } catch (error) {
-      debug('AlsoKnownAs.constructor (0c):'  + JSON.stringify({ error: error.toString() }))
+      debug('AlsoKnownAs.constructor error:' + JSON.stringify({error2: error, aka: this.aka}))
     }
-
   }
 
-  /*
-  DOI: 10.5281/zenodo.3911655
-  EdTechHub.ItemAlsoKnownAs:<space><-- --><space>2259720:XIML4I5W;10.5281/zenodo.3911655;2405685:89ZSBKU
-  */
   add(id: string) {
     id = (id || '').trim()
     if (id) this.aka.add(id)
@@ -237,15 +227,11 @@ class AlsoKnownAs {
   changed() {
     // this.init contains original object; 'this' changes with 'add'.
     // Here we compare the original object (this.init) with the current object (this).
-    // A:B;C:D -> A:B C:D
     return this.init.trim() !== this.toString().trim()
   }
 
   toString() {
     // no idea why this empty element keeps appearing
-
-    debug('AlsoKnownAs.toString (0a): ' + JSON.stringify({ original: this.aka, updated: [...this.aka].sort().join(' ')}))
-
     return [...this.aka].sort().join(' ')
   }
 
@@ -344,8 +330,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     const items = Zotero.getActiveZoteroPane().getSelectedItems().filter(item => item.isRegularItem())
 
     for (const item of items) {
-      debug('assignKey (0a): ' + JSON.stringify({ item: item.id }))
-      debug('assignKey (0b): ' + JSON.stringify({ extra: item.getField('extra') }))
+      debug('assignKey: ' + JSON.stringify({ item: item.id }))
 
       const doi = { long: Zotero.ItemFields.isValidForType(this.fieldID.DOI, item.itemTypeID) ? item.getField('DOI') : '', short: '', assign: '' }
 
@@ -363,38 +348,17 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
 
       doi.assign = doi.short || doi.long
 
-      debug('assignKey (0c): ' + JSON.stringify({ extra: item.getField('extra') }))
-
-      // const alsoKnownAs = this.getAlsoKnownAs(item)
-      let alsoKnownAs
-      try {
-        alsoKnownAs = this.getAlsoKnownAs(item)
-      } catch (error) {
-        debug('assignKey (0d): ' + JSON.stringify({ error2: error }))
-      }
-
-      debug('assignKey (1): ' + JSON.stringify({ changed: alsoKnownAs.changed(), aka: alsoKnownAs.toString() }))
-
+      const alsoKnownAs = this.getAlsoKnownAs(item)
       alsoKnownAs.add(doi.assign)
       alsoKnownAs.add(`${libraryKey(item)}:${item.key}`)
 
-      debug('assignKey (2): ' + JSON.stringify({ changed: alsoKnownAs.changed(), aka: alsoKnownAs.toString() }))
-
-      /*
-      "relations": {
-        "owl:sameAs": "http://zotero.org/groups/2405685/items/BMM3Z3CM"
-      },
-      */
-
       getRelations(item, alsoKnownAs)
-
-      debug('assignKey (3): ' + JSON.stringify({ changed: alsoKnownAs.changed(), aka: alsoKnownAs.toString() }))
 
       /*
       if (!key && Zotero.ShortDOI && item.getTags().find(tag => [Zotero.ShortDOI.tag_invalid, Zotero.ShortDOI.tag_multiple, Zotero.ShortDOI.tag_nodoi].includes(tag.tag))) {
       }
       */
-      debug('assignKey (4): ' + JSON.stringify({ changed: alsoKnownAs.changed(), aka: alsoKnownAs.toString() }))
+      debug('assignKey: ' + JSON.stringify({ changed: alsoKnownAs.changed(), aka: alsoKnownAs.toString() }))
       if (alsoKnownAs.changed()) {
         this.setAlsoKnownAs(item, alsoKnownAs)
         await item.saveTx()
