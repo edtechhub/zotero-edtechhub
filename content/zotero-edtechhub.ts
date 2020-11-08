@@ -203,9 +203,14 @@ class AlsoKnownAs {
   private init: string
 
   constructor(init: string = '') {
+
+    debug('AlsoKnownAs.constructor (0a): ' + JSON.stringify({ item: this.aka, init: this.init.toString() }))
+
     // Changing syntax for separator in aka from ";" or "; " to " " (/ +/ to be precise). Only allow / +/ in future release.
     this.aka = new Set(init.split(init.includes(';') ? /; */ : / +/).filter(aka => aka))
     this.init = this.toString()
+
+    debug('AlsoKnownAs.constructor (0b): ' + JSON.stringify({ item: this.aka, init: this.init.toString() }))
   }
 
   add(id: string) {
@@ -217,11 +222,15 @@ class AlsoKnownAs {
   changed() {
     // this.init contains original object; 'this' changes with 'add'.
     // Here we compare the original object (this.init) with the current object (this).
+    // A:B;C:D -> A:B C:D
     return this.init.trim() !== this.toString().trim()
   }
 
   toString() {
     // no idea why this empty element keeps appearing
+
+    debug('AlsoKnownAs.toString (0a): ' + JSON.stringify({ original: this.aka, updated: [...this.aka].sort().join(' ')}))
+
     return [...this.aka].sort().join(' ')
   }
 
