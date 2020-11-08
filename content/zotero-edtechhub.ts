@@ -215,8 +215,8 @@ class AlsoKnownAs {
   }
 
   changed() {
-    // this.init contains original object; 'this' changes with 'add'. 
-    // Here we compare the original object (this.init) with the current object (this). 
+    // this.init contains original object; 'this' changes with 'add'.
+    // Here we compare the original object (this.init) with the current object (this).
     return this.init.trim() !== this.toString().trim()
   }
 
@@ -356,7 +356,6 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
       if (!key && Zotero.ShortDOI && item.getTags().find(tag => [Zotero.ShortDOI.tag_invalid, Zotero.ShortDOI.tag_multiple, Zotero.ShortDOI.tag_nodoi].includes(tag.tag))) {
       }
       */
- 
       debug('assignKey (4): ' + JSON.stringify({ changed: alsoKnownAs.changed(), aka: alsoKnownAs.toString() }))
       if (alsoKnownAs.changed()) {
         this.setAlsoKnownAs(item, alsoKnownAs)
