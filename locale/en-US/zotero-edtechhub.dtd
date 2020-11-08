@@ -1,9 +1,9 @@
-<!ENTITY zotero.edtechhub "EdTech hub companion plugin for Zotero">
-<!ENTITY edtechhub.assign-key "ETH Save item ID">
-<!ENTITY edtechhub.save-to-note "ETH Save item details to note">
-<!ENTITY edtechhub.duplicate-attachment "ETH Duplicate attachment">
-<!ENTITY edtechhub.debug-log "Send EdTech hub debug log">
+<!ENTITY zotero.edtechhub "EdTech Hub / Kerko companion plugin for Zotero">
+<!ENTITY edtechhub.assign-key "KCite Save item ID">
+<!ENTITY edtechhub.save-to-note "KCite Save item details to note">
+<!ENTITY edtechhub.duplicate-attachment "KCite Duplicate attachment">
+<!ENTITY edtechhub.debug-log "Send EdTech Hub/KCite debug log">
 
-<!ENTITY edtechhub.Bjoern2A_BjoernCitationStringTagged "ETH Cite (Author, Year)">
-<!ENTITY edtechhub.Bjoern2B_BjoernCitationStringTagged "ETH Cite Author (Year)">
-<!ENTITY edtechhub.Bjoern7_ETHref "ETH Share citation">
+<!ENTITY edtechhub.Bjoern2A_BjoernCitationStringTagged "KCite: (Author, Year)">
+<!ENTITY edtechhub.Bjoern2B_BjoernCitationStringTagged "KCite: Author (Year)">
+<!ENTITY edtechhub.Bjoern7_ETHref "KCite: Share">
