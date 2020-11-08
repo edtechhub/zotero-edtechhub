@@ -315,7 +315,8 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     const items = Zotero.getActiveZoteroPane().getSelectedItems().filter(item => item.isRegularItem())
 
     for (const item of items) {
-      debug('assignKey: ' + JSON.stringify({ item: item.id }))
+      debug('assignKey (0a): ' + JSON.stringify({ item: item.id }))
+      debug('assignKey (0b): ' + JSON.stringify({ extra: item.getField('extra') }))
 
       const doi = { long: Zotero.ItemFields.isValidForType(this.fieldID.DOI, item.itemTypeID) ? item.getField('DOI') : '', short: '', assign: '' }
 
@@ -332,6 +333,8 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
       if (doi.short) doi.short = Zotero.Utilities.cleanDOI(doi.short)
 
       doi.assign = doi.short || doi.long
+
+      debug('assignKey (0c): ' + JSON.stringify({ extra: item.getField('extra') }))
 
       const alsoKnownAs = this.getAlsoKnownAs(item)
 
