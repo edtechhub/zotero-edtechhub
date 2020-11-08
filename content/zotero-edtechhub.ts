@@ -27,7 +27,8 @@ function flash(title, body = null, timeout = 8) {
   }
 }
 
-const prefix = 'EdTechHub.ItemAlsoKnownAs:'
+const prefixLegacy = 'EdTechHub.ItemAlsoKnownAs:'
+const prefix = 'KerkoCite.ItemAlsoKnownAs:'
 
 function libraryKey(item) {
   return Zotero.URI.getLibraryPath(item.libraryID || Zotero.Libraries.userLibraryID).replace(/.*\//, '')
@@ -203,12 +204,19 @@ class AlsoKnownAs {
   private aka: Set<string>
   private init: string
 
-  constructor(init: string = '') {
+  constructor(init: string = '', prefixString: string = '') {
     try {
+      // Trim in the inbound string to remove spurious spaces from start/end
+      init = init.trim()
       this.init = init
       // debug('AlsoKnownAs.constructor (0a): ' + JSON.stringify({ item: this.aka, init: this.init.toString() }))
       // Changing syntax for separator in aka from ";" or "; " to " " (/ +/ to be precise). Only allow / +/ in future release.
-      this.aka = new Set(init.split(init.includes(';') ? /; */ : / +/).filter(aka => aka))
+      // this.aka = new Set(init.split(init.includes(';') ? /; */ : / +/).filter(aka => aka)) {
+      if (prefixString === prefixLegacy) {
+        this.aka = new Set(init.split(/; */).filter(aka => aka))
+      } else {
+        this.aka = new Set(init.split(/ +/).filter(aka => aka))
+      }
       debug('AlsoKnownAs.constructor (0b): ' + JSON.stringify({ item: this.aka, init: this.init.toString() }))
     } catch (error) {
       debug('AlsoKnownAs.constructor (0c):'  + JSON.stringify({ error: error.toString() }))
@@ -216,6 +224,10 @@ class AlsoKnownAs {
 
   }
 
+  /*
+  DOI: 10.5281/zenodo.3911655
+  EdTechHub.ItemAlsoKnownAs:<space><-- --><space>2259720:XIML4I5W;10.5281/zenodo.3911655;2405685:89ZSBKU
+  */
   add(id: string) {
     id = (id || '').trim()
     if (id) this.aka.add(id)
@@ -286,8 +298,11 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     if (!Zotero.ItemFields.isValidForType(this.fieldID.extra, item.itemTypeID)) return new AlsoKnownAs
 
     for (const line of (item.getField('extra') || '').split('\n')) {
+      if (line.startsWith(prefixLegacy)) {
+        return new AlsoKnownAs(line.substring(prefixLegacy.length), prefixLegacy)
+      }
       if (line.startsWith(prefix)) {
-        return new AlsoKnownAs(line.substring(prefix.length))
+        return new AlsoKnownAs(line.substring(prefix.length), prefix)
       }
     }
 
@@ -296,8 +311,10 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
 
   private setAlsoKnownAs(item, alsoKnownAs: AlsoKnownAs) {
     debug(`setAlsoKnownAs+ ${alsoKnownAs.toString()}`)
+    // Need to remove line with prefixLegacy
     const extra = (item.getField('extra') || '')
       .split('\n')
+      .filter(line => ! line.startsWith(prefixLegacy))
       .filter(line => ! line.startsWith(prefix))
       .concat(`${prefix} ${alsoKnownAs.toString()}`)
       .join('\n')
