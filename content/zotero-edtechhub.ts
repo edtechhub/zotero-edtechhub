@@ -200,11 +200,12 @@ function zotero_itemmenu_popupshowing() {
 class AlsoKnownAs {
   private size: number
   private aka: Set<string>
+  private init: string
 
   constructor(init: string = '') {
     // Changing syntax for separator in aka from ";" or "; " to " " (/ +/ to be precise). Only allow / +/ in future release.
     this.aka = new Set(init.split(init.includes(';') ? /; */ : / +/).filter(aka => aka))
-    this.size = this.aka.size
+    this.init = this.toString()
   }
 
   add(id: string) {
@@ -214,7 +215,7 @@ class AlsoKnownAs {
   }
 
   changed() {
-    return this.size !== this.aka.size
+    return this.init !== this.toString()
   }
 
   toString() {
