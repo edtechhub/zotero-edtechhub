@@ -133,6 +133,7 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
     history += `<p>itemKey:</td><td>${item.key}</p>\n`
     history += `<p>itemKeyOld:</td><td>${otherItems.map(i => i.key).join(', ')}</p>\n`
     history += '</div>\n'
+    // Add 'extra' to history - https://github.com/edtechhub/zotero-edtechhub/issues/60
   } catch (err) {
     debug('merge-alsoKnownAs: error=', err)
   }
