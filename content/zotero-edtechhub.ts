@@ -204,14 +204,16 @@ class AlsoKnownAs {
   private init: string
 
   constructor(init: string = '') {
+    try {
+      this.init = init
+      // debug('AlsoKnownAs.constructor (0a): ' + JSON.stringify({ item: this.aka, init: this.init.toString() }))
+      // Changing syntax for separator in aka from ";" or "; " to " " (/ +/ to be precise). Only allow / +/ in future release.
+      this.aka = new Set(init.split(init.includes(';') ? /; */ : / +/).filter(aka => aka))
+      debug('AlsoKnownAs.constructor (0b): ' + JSON.stringify({ item: this.aka, init: this.init.toString() }))
+    } catch (error) {
+      debug('AlsoKnownAs.constructor (0c):'  + JSON.stringify({ error: error.toString() }))
+    }
 
-    debug('AlsoKnownAs.constructor (0a): ' + JSON.stringify({ item: this.aka, init: this.init.toString() }))
-
-    // Changing syntax for separator in aka from ";" or "; " to " " (/ +/ to be precise). Only allow / +/ in future release.
-    this.aka = new Set(init.split(init.includes(';') ? /; */ : / +/).filter(aka => aka))
-    this.init = this.toString()
-
-    debug('AlsoKnownAs.constructor (0b): ' + JSON.stringify({ item: this.aka, init: this.init.toString() }))
   }
 
   add(id: string) {
