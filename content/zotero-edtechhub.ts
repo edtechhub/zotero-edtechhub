@@ -215,7 +215,9 @@ class AlsoKnownAs {
   }
 
   changed() {
-    return this.init !== this.toString()
+    // this.init contains original object; 'this' changes with 'add'. 
+    // Here we compare the original object (this.init) with the current object (this). 
+    return this.init.trim() !== this.toString().trim()
   }
 
   toString() {
@@ -232,7 +234,7 @@ class AlsoKnownAs {
       yield id
     }
   }
-  [Symbol.iterator]() {
+[Symbol.iterator]() {
     return this.iterator()
   }
 }
@@ -333,16 +335,29 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
 
       const alsoKnownAs = this.getAlsoKnownAs(item)
 
+      debug('assignKey (1): ' + JSON.stringify({ changed: alsoKnownAs.changed(), aka: alsoKnownAs.toString() }))
+
       alsoKnownAs.add(doi.assign)
       alsoKnownAs.add(`${libraryKey(item)}:${item.key}`)
 
+      debug('assignKey (2): ' + JSON.stringify({ changed: alsoKnownAs.changed(), aka: alsoKnownAs.toString() }))
+
+      /*
+      "relations": {
+        "owl:sameAs": "http://zotero.org/groups/2405685/items/BMM3Z3CM"
+      },
+      */
+
       getRelations(item, alsoKnownAs)
+
+      debug('assignKey (3): ' + JSON.stringify({ changed: alsoKnownAs.changed(), aka: alsoKnownAs.toString() }))
 
       /*
       if (!key && Zotero.ShortDOI && item.getTags().find(tag => [Zotero.ShortDOI.tag_invalid, Zotero.ShortDOI.tag_multiple, Zotero.ShortDOI.tag_nodoi].includes(tag.tag))) {
       }
       */
-      debug('assignKey: ' + JSON.stringify({ changed: alsoKnownAs.changed(), aka: alsoKnownAs.toString() }))
+ 
+      debug('assignKey (4): ' + JSON.stringify({ changed: alsoKnownAs.changed(), aka: alsoKnownAs.toString() }))
       if (alsoKnownAs.changed()) {
         this.setAlsoKnownAs(item, alsoKnownAs)
         await item.saveTx()
