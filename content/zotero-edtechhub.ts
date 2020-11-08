@@ -351,7 +351,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
       try {
         alsoKnownAs = this.getAlsoKnownAs(item)
       } catch (error) {
-        debug('assignKey (0d): ' + JSON.stringify({ error: error }))
+        debug('assignKey (0d): ' + JSON.stringify({ error2: error }))
       }
 
       debug('assignKey (1): ' + JSON.stringify({ changed: alsoKnownAs.changed(), aka: alsoKnownAs.toString() }))
