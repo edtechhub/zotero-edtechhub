@@ -13,14 +13,14 @@ This is a plugin for Zotero, developed by [@retorquere](https://github.com/retor
 # Features of the plugin
 
 ## Right-click menu (on item)
-- ETH Save item ID. Saves the item ID to a field in 'extra'
-- ETH Save item details to note. Saves the current items metadata into a note. Helpful if a change in item type might lead to loss of information.
-- ETH Cite (Author, Year). A kind of 'scannable cite' to use with Google Docs, format 1.
-- ETH Cite Author (Year). A kind of 'scannable cite' to use with Google Docs, format 1.
-- ETH Share citation. Sharing a citation (author, year, title) together with Zotero locations. We use this to share citations with each other e.g. on Slack or via Email.
+- KCite: (Author, Year). A kind of 'scannable cite' to use with Google Docs, format 1.
+- KCite: Author (Year). A kind of 'scannable cite' to use with Google Docs, format 1.
+- KCite: Share. Sharing a citation (author, year, title) together with Zotero locations. We use this to share citations with each other e.g. on Slack or via Email.
+- KCite Save item ID. Saves the item ID to a field in 'extra'
+- KCite Save item details to note. Saves the current items metadata into a note. Helpful if a change in item type might lead to loss of information.
 
 ## Right-click menu (on attachment)
-- ETH Duplicate attachment. Duplicates an attachment, typically a PDF. This is useful if you'd like to keep a clear copy of the PDF prior to annotation.
+- KCite Duplicate attachment. Duplicates an attachment, typically a PDF. This is useful if you'd like to keep a clear copy of the PDF prior to annotation.
 
 ## Other features
 
