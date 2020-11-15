@@ -139,7 +139,7 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
     const itemExtra = item.getField('extra')
     const itemExtraOld = otherItems.map(i => i.getField('extra')).join('<br>')
     history += `<p>item.extra:</td><td>${itemExtra}</p>\n`
-    history += `<p>itemOLD.extraKey:</td>${itemExtraOld}<td></p>\n`
+    history += `<p>itemOLD.extra:</td>${itemExtraOld}<td></p>\n`
     history += '</div>\n'
   } catch (err) {
     debug('merge-alsoKnownAs: error=', err)
