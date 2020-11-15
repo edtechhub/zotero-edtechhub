@@ -130,16 +130,16 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
     history = `<div><b>Item history (${user}${new Date})</b></div>\n`
     history += `<pre>${Zotero.Utilities.text2html(ris)}</pre>\n`
     history += '<div>\n'
-    history += `<p>group:</td><td>${libraryKey(item)}</p>\n`
-    history += `<p>itemKey:</td><td>${item.key}</p>\n`
-    history += `<p>itemKeyOld:</td><td>${otherItems.map(i => i.key).join(', ')}</p>\n`
+    history += `<p>group: ${libraryKey(item)}</p>\n`
+    history += `<p>itemKey: ${item.key}</p>\n`
+    history += `<p>itemKeyOld: ${otherItems.map(i => i.key).join(', ')}</p>\n`
     history += '</div>\n'
     // Add 'extra' to history - https://github.com/edtechhub/zotero-edtechhub/issues/60
     history += '<div>\n'
     const itemExtra = item.getField('extra')
-    const itemExtraOld = otherItems.map(i => i.getField('extra')).join('<br>')
-    history += `<p>item.extra:</td><td>${itemExtra}</p>\n`
-    history += `<p>itemOLD.extra:</td>${itemExtraOld}<td></p>\n`
+    const itemExtraOld = otherItems.map(i => i.getField('extra')).join('<br>itemOLD.extra:')
+    history += `<p>item.extra: ${itemExtra}</p>\n`
+    history += `<p>itemOLD.extra: ${itemExtraOld}</p>\n`
     history += '</div>\n'
   } catch (err) {
     debug('merge-alsoKnownAs: error=', err)
