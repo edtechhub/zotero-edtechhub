@@ -20,13 +20,12 @@ const config = {
   devtool: false,
   optimization: {
     flagIncludedChunks: true,
-    occurrenceOrder: false,
     usedExports: true,
     minimize: false,
     concatenateModules: false,
-    noEmitOnErrors: true,
-    namedModules: true,
-    namedChunks: true,
+    emitOnErrors: false,
+    moduleIds: 'named',
+    chunkIds: 'named',
     runtimeChunk: {
       name: 'webpack',
     },
@@ -36,7 +35,7 @@ const config = {
     extensions: ['.ts', '.js'],
   },
 
-  node: { fs: 'empty' },
+  node: false,
 
   resolveLoader: {
     alias: {
@@ -58,7 +57,7 @@ const config = {
       if (fs.existsSync(wrapped_webpack)) {
         let js = fs.readFileSync(`${target_dir}/${webpack_js}`, 'utf-8')
 
-        const prefix = 'if (!Zotero.WebPackedEdTechHub) {\n\n'
+        const prefix = 'if (!Zotero.webpackChunkEdTechHub) {\n\n'
         const postfix = '\n\n}\n'
 
         if (!js.startsWith(prefix)) js = `${prefix}${js}${postfix}`
@@ -82,8 +81,7 @@ const config = {
     globalObject: 'Zotero',
     path: path.resolve(__dirname, `./${target_dir}`),
     filename: '[name].js',
-    jsonpFunction: 'WebPackedEdTechHub',
-    devtoolLineToLine: true,
+    uniqueName: 'EdTechHub',
     pathinfo: true,
     library: 'Zotero.[name]',
     libraryTarget: 'assign',
