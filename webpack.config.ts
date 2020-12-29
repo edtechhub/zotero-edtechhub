@@ -12,6 +12,8 @@ import 'zotero-plugin/copy-assets'
 import 'zotero-plugin/rdf'
 import 'zotero-plugin/version'
 
+const pkg = require('./package.json')
+
 const target_dir = 'build/content'
 const webpack_js = 'webpack.js'
 
@@ -57,7 +59,7 @@ const config = {
       if (fs.existsSync(wrapped_webpack)) {
         let js = fs.readFileSync(`${target_dir}/${webpack_js}`, 'utf-8')
 
-        const prefix = 'if (!Zotero.webpackChunkEdTechHub) {\n\n'
+        const prefix = `if (!Zotero.webpackChunk${pkg.name.replace(/-/g, '_')}) {\n\n`
         const postfix = '\n\n}\n'
 
         if (!js.startsWith(prefix)) js = `${prefix}${js}${postfix}`
@@ -81,7 +83,7 @@ const config = {
     globalObject: 'Zotero',
     path: path.resolve(__dirname, `./${target_dir}`),
     filename: '[name].js',
-    uniqueName: 'EdTechHub',
+    uniqueName: pkg.name,
     pathinfo: true,
     library: 'Zotero.[name]',
     libraryTarget: 'assign',
