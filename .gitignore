@@ -13,3 +13,5 @@ build
 *.xpi
 node_modules
 .env
+BaCkUp
+update.sh

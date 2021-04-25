@@ -23,7 +23,7 @@ function flash(title, body = null, timeout = 8) {
     pw.show()
     pw.startCloseTimer(timeout * 1000) // tslint:disable-line:no-magic-numbers
   } catch (err) {
-    debug(`@flash failed: ${JSON.stringify({title, body})}`, err)
+    debug(`@flash failed: ${JSON.stringify({ title, body })}`, err)
   }
 }
 
@@ -50,6 +50,21 @@ function toClipboard(text) {
   transferable.setTransferData(mimetype, str, text.length * 2)
 
   clipboard.setData(transferable, null, Components.interfaces.nsIClipboard.kGlobalClipboard)
+}
+
+function toClipboardHTML(content) {
+
+  const clipboard = Components.classes['@mozilla.org/widget/clipboard;1'].getService(Components.interfaces.nsIClipboard)
+  const transferable = Components.classes['@mozilla.org/widget/transferable;1'].createInstance(Components.interfaces.nsITransferable)
+
+  const str = Components.classes['@mozilla.org/supports-string;1'].createInstance(Components.interfaces.nsISupportsString)
+  str.data = content
+  transferable.addDataFlavor('text/html')
+  transferable.setTransferData('text/html', str, content.length * 2) // don't recall why the * 2 is there but it doesn't work without it.
+  // you can add RTF as mimetype text/richtext in a similar way, and yes, this is the wrong mimetype for RTF, but this is the only thing Firefox accepts
+
+  clipboard.setData(transferable, null, Components.interfaces.nsIClipboard.kGlobalClipboard)
+
 }
 
 async function put(url, body) {
@@ -82,7 +97,7 @@ function translate(items, translator) { // returns a promise
 }
 
 async function asRIS(items) {
-  if (!Array.isArray(items)) items = [ items ]
+  if (!Array.isArray(items)) items = [items]
 
   return await translate(items, '32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7') // RIS
 }
@@ -96,7 +111,7 @@ function itemKey(uri) {
 function getRelations(item, alsoKnownAs: AlsoKnownAs) {
   const itemRelations = item.getRelations()
   for (let relations of [itemRelations['dc:replaces'], itemRelations['owl:sameAs']]) {
-    if (typeof relations === 'string') relations = [ relations ]
+    if (typeof relations === 'string') relations = [relations]
     if (!Array.isArray(relations)) continue
 
     for (const uri of relations) {
@@ -192,7 +207,7 @@ function debug(msg, err = null) {
 function zotero_itemmenu_popupshowing() {
   const selected = Zotero.getActiveZoteroPane().getSelectedItems()
 
-  const hidden = Zotero.EdTechHub.ready.isPending() || ! selected.find(item => item.isRegularItem())
+  const hidden = Zotero.EdTechHub.ready.isPending() || !selected.find(item => item.isRegularItem())
   for (const elt of Array.from(document.getElementsByClassName('edtechhub-zotero-itemmenu-regularitem'))) {
     (elt as any).hidden = hidden
   }
@@ -200,9 +215,9 @@ function zotero_itemmenu_popupshowing() {
   document.getElementById('edtechhub-duplicate-attachment').hidden =
     Zotero.EdTechHub.ready.isPending()
     || selected.length !== 1 || !selected[0].isAttachment() // must be a single attachment
-    || ! [ Zotero.Attachments.LINK_MODE_LINKED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_URL ].includes(selected[0].attachmentLinkMode) // not a linked or imported file
+    || ![Zotero.Attachments.LINK_MODE_LINKED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_URL].includes(selected[0].attachmentLinkMode) // not a linked or imported file
     || (selected[0].attachmentLinkMode === Zotero.Attachments.LINK_MODE_IMPORTED_URL && selected[0].attachmentContentType === 'text/html') // no web snapshots
-    || ! selected[0].getFilePath() // path does not exist
+    || !selected[0].getFilePath() // path does not exist
 }
 
 class AlsoKnownAs {
@@ -221,7 +236,7 @@ class AlsoKnownAs {
         this.aka = new Set(init.split(/ +/).filter(aka => aka))
       }
     } catch (error) {
-      debug('AlsoKnownAs.constructor error:' + JSON.stringify({error2: error, aka: this.aka}))
+      debug('AlsoKnownAs.constructor error:' + JSON.stringify({ error2: error, aka: this.aka }))
     }
   }
 
@@ -251,7 +266,7 @@ class AlsoKnownAs {
       yield id
     }
   }
-[Symbol.iterator]() {
+  [Symbol.iterator]() {
     return this.iterator()
   }
 }
@@ -265,7 +280,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     DOI: number,
     extra: number,
   }
-  private translators: { file: string, translatorID: string}[] = []
+  private translators: { file: string, translatorID: string }[] = []
 
   constructor() {
     const ready = Zotero.Promise.defer()
@@ -307,8 +322,8 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     // Need to remove line with prefixLegacy
     const extra = (item.getField('extra') || '')
       .split('\n')
-      .filter(line => ! line.startsWith(prefixLegacy))
-      .filter(line => ! line.startsWith(prefix))
+      .filter(line => !line.startsWith(prefixLegacy))
+      .filter(line => !line.startsWith(prefix))
       .concat(`${prefix} ${alsoKnownAs.toString()}`)
       .join('\n')
     debug(`setAlsoKnownAs: ${extra}`)
@@ -485,8 +500,13 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     if (!nitems) return
 
     const text = await translate(items, translatorID)
-    toClipboard(text)
-    flash(`${nitems} items copied to clipboard`)
+    if (text.match(/<a href=/)) {
+      toClipboardHTML(text)
+      flash(`${nitems} item(s) copied to clipboard as html`)
+    } else {
+      toClipboard(text)
+      flash(`${nitems} item(s) copied to clipboard as text`)
+    }
   }
 
   private async installTranslator(name) {
