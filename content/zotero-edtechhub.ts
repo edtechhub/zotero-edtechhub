@@ -487,7 +487,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     ready.resolve(true)
 
     const addons = await Zotero.getInstalledExtensions()
-    if (!addons.find(addon => addon.startsWith('Zotero DOI Manager '))) flash('Zotero-ShortDOI not installed', 'The short-doi plugin is not available, please install it from https://github.com/bwiernik/zotero-shortdoi')
+    // if (!addons.find(addon => addon.startsWith('Zotero DOI Manager '))) flash('Zotero-ShortDOI not installed', 'The short-doi plugin is not available, please install it from https://github.com/bwiernik/zotero-shortdoi')
     if (!addons.find(addon => addon.startsWith('ZotFile '))) flash('ZotFile not installed', 'The ZotFile plugin is not available, please install it from http://zotfile.com/')
     if (!addons.find(addon => addon.startsWith('Zutilo Utility for Zotero '))) flash('Zutilo not installed', 'The Zutilo plugin is not available, please install it from https://github.com/willsALMANJ/Zutilo')
 
@@ -527,6 +527,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     debug('installing translators')
     await this.installTranslator('Bjoern2A_BjoernCitationStringTagged.js')
     await this.installTranslator('Bjoern2B_BjoernCitationStringTagged.js')
+    await this.installTranslator('Bjoern2C_BjoernCitationStringTagged.js')
     await this.installTranslator('Bjoern7_ETHref.js')
     await Zotero.Translators.reinit()
   }

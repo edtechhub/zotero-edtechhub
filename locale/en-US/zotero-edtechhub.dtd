@@ -6,4 +6,5 @@
 
 <!ENTITY edtechhub.Bjoern2A_BjoernCitationStringTagged "KCite: (Author, Year)">
 <!ENTITY edtechhub.Bjoern2B_BjoernCitationStringTagged "KCite: Author (Year)">
+<!ENTITY edtechhub.Bjoern2C_BjoernCitationStringTagged "KCite: Title, Author (Year)">
 <!ENTITY edtechhub.Bjoern7_ETHref "KCite: Share">

@@ -1,6 +1,6 @@
 {
-    "translatorID": "b46d575e-396c-11ea-8ee0-0741699b71ec",
-    "label": "Bjoerns Citation String with country, year in brackets (Bjoern2B)",
+    "translatorID": "fe1c68d8-aa8e-11eb-85c1-1799e2c1b06e",
+    "label": "Bjoerns Citation String with title, country and year in brackets (Bjoern2C)",
     "creator": "Bjoern Hassler (adapted from scannable cite)",
     "target": "html",
     "minVersion": "3.0",
@@ -22,7 +22,7 @@ function doExport() {
 	// The citations have a bracket around the year only:
 	const year_in_brackets = true;
 	// Include the item title (you probably want year_in_brackets = false)
-	const show_title = false;
+	const show_title = true;
 	// Append the Zotero locator
 	const show_zotero_locator = false;
 	// --------------------------------------------
@@ -30,7 +30,6 @@ function doExport() {
 	const full_citation_string = getFullCitationString(ashtml, year_in_brackets, show_title, show_zotero_locator)
 	Zotero.write(full_citation_string)
 }
-
 
 // Shared code
 
