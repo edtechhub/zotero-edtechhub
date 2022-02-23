@@ -5,10 +5,6 @@
 <overlay id="zotero-edtechhub-overlay"
 	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 
-  <menupopup id="menu_HelpPopup">
-    <menuitem insertafter="reportErrors" label="&edtechhub.debug-log;" oncommand="Zotero.EdTechHub.run('debugLog')"/>
-  </menupopup>
-
   <menupopup id="zotero-itemmenu">
     <menuseparator/>
     <menuitem class="edtechhub-zotero-itemmenu-regularitem" label="&edtechhub.Bjoern2A_BjoernCitationStringTagged;" oncommand="Zotero.EdTechHub.run('copyToClipboard', '4ec4a50b-e979-448f-af4c-e5b46d1a3b03');"/>
@@ -21,7 +17,5 @@
   </menupopup>
 	
 	<!-- Include the main extension logic -->
-  <script src="chrome://zotero/content/include.js"/>
-  <script src="chrome://zotero-edtechhub/content/webpack.js"/>
-  <script src="chrome://zotero-edtechhub/content/EdTechHub.js"/>
+  <script src="chrome://zotero-edtechhub/content/zotero-edtechhub.js"/>
 </overlay>

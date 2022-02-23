@@ -1,6 +1,10 @@
 declare const Zotero: any
 declare const Components: any
 
+var EdTechHub: EdTechHubMain // eslint-disable-line no-var
+
+import { DebugLog as DebugLogSender } from 'zotero-plugin/debug-log'
+
 Components.utils.import('resource://gre/modules/osfile.jsm')
 declare const OS: any
 
@@ -13,7 +17,7 @@ function $patch$(object, method, patcher) {
   object[method][marker] = true
 }
 
-function flash(title, body = null, timeout = 8) {
+function flash(title, body = null, timeout = 8) { // eslint-disable-line @typescript-eslint/no-magic-numbers
   try {
     const pw = new Zotero.ProgressWindow()
     pw.changeHeadline(`EdTech Hub: ${title}`)
@@ -21,8 +25,9 @@ function flash(title, body = null, timeout = 8) {
     if (Array.isArray(body)) body = body.join('\n')
     pw.addDescription(body)
     pw.show()
-    pw.startCloseTimer(timeout * 1000) // tslint:disable-line:no-magic-numbers
-  } catch (err) {
+    pw.startCloseTimer(timeout * 1000) // eslint-disable-line @typescript-eslint/no-magic-numbers
+  }
+  catch (err) {
     debug(`@flash failed: ${JSON.stringify({ title, body })}`, err)
   }
 }
@@ -30,12 +35,9 @@ function flash(title, body = null, timeout = 8) {
 const prefixLegacy = 'EdTechHub.ItemAlsoKnownAs:'
 const prefix = 'KerkoCite.ItemAlsoKnownAs:'
 
-function libraryKey(item) {
-  return Zotero.URI.getLibraryPath(item.libraryID || Zotero.Libraries.userLibraryID).replace(/.*\//, '')
-}
-
-function isShortDOI(ShortDOI) { // tslint:disable-line:variable-name
-  return ShortDOI.match(/^10\/[a-z0-9]+$/)
+function libraryKey(item: any): string {
+  const key: string = Zotero.URI.getLibraryPath(item.libraryID || (Zotero.Libraries.userLibraryID as number))
+  return key.replace(/.*\//, '')
 }
 
 function toClipboard(text) {
@@ -67,18 +69,7 @@ function toClipboardHTML(content) {
 
 }
 
-async function put(url, body) {
-  if (await OS.File.exists(OS.Path.join(Zotero.EdTechHub.dir, 'enable.txt'))) {
-    const path = OS.Path.join(Zotero.EdTechHub.dir, url.split('/').reverse()[0])
-    await Zotero.File.putContentsAsync(path, body)
-    return path
-  }
-
-  const response = await fetch(url, { method: 'PUT', body })
-  return await response.text()
-}
-
-function translate(items, translator) { // returns a promise
+function translate(items: any[], translator: string): Promise<string> { // returns a promise
   const deferred = Zotero.Promise.defer()
   const translation = new Zotero.Translate.Export()
   translation.setItems(items)
@@ -87,18 +78,17 @@ function translate(items, translator) { // returns a promise
   translation.setHandler('done', (obj, success) => {
     if (success) {
       deferred.resolve(obj ? obj.string : '')
-    } else {
+    }
+    else {
       debug(`translate with ${translator} failed`, { message: 'undefined' })
       deferred.resolve('')
     }
   })
   translation.translate()
-  return deferred.promise
+  return deferred.promise as Promise<string>
 }
 
-async function asRIS(items) {
-  if (!Array.isArray(items)) items = [items]
-
+async function asRIS(items: any[]): Promise<string> {
   return await translate(items, '32d59d2d-b65a-4da4-b0a3-bdd3cfb979e7') // RIS
 }
 
@@ -125,11 +115,11 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
   let history: string = null
 
   try {
-    alsoKnownAs = Zotero.EdTechHub.getAlsoKnownAs(item)
+    alsoKnownAs = EdTechHub.getAlsoKnownAs(item)
     // preserve AlsoKnownAs of all merged items
     getRelations(item, alsoKnownAs)
     for (const otherItem of otherItems) {
-      for (const id of Zotero.EdTechHub.getAlsoKnownAs(otherItem)) {
+      for (const id of EdTechHub.getAlsoKnownAs(otherItem)) {
         alsoKnownAs.add(id)
       }
       getRelations(otherItem, alsoKnownAs)
@@ -147,25 +137,26 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
     history += '<div>\n'
     history += `<p>group: ${libraryKey(item)}</p>\n`
     history += `<p>itemKey: ${item.key}</p>\n`
-    history += `<p>itemKeyOld: ${otherItems.map(i => i.key).join(', ')}</p>\n`
+    history += `<p>itemKeyOld: ${otherItems.map((i: { key: string }) => i.key).join(', ')}</p>\n`
     history += '</div>\n'
     // Add 'extra' to history - https://github.com/edtechhub/zotero-edtechhub/issues/60
     history += '<div>\n'
     const itemExtra = item.getField('extra')
-    const itemExtraOld = otherItems.map(i => i.getField('extra')).join('<br>itemOLD.extra:')
+    const itemExtraOld = otherItems.map(i => i.getField('extra') as string).join('<br>itemOLD.extra:')
     history += `<p>item.extra: ${itemExtra}</p>\n`
     history += `<p>itemOLD.extra: ${itemExtraOld}</p>\n`
     history += '</div>\n'
-  } catch (err) {
+  }
+  catch (err) {
     debug('merge-alsoKnownAs: error=', err)
   }
 
   debug('merge-alsoKnownAs: merging...')
-  const merged = await original.apply(this, arguments)
+  const merged = await original.apply(this, arguments) // eslint-disable-line prefer-rest-params
 
   try {
     if (alsoKnownAs?.changed()) {
-      Zotero.EdTechHub.setAlsoKnownAs(item, alsoKnownAs)
+      EdTechHub.setAlsoKnownAs(item, alsoKnownAs)
       await item.saveTx()
     }
     if (history) {
@@ -176,11 +167,12 @@ $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
       await note.saveTx()
       debug('merge-alsoKnownAs: note saved')
     }
-  } catch (err) {
+  }
+  catch (err) {
     debug('merge-alsoKnownAs: error=', err)
   }
 
-  return merged
+  return merged // eslint-disable-line @typescript-eslint/no-unsafe-return
 })
 
 function debug(msg, err = null) {
@@ -190,7 +182,8 @@ function debug(msg, err = null) {
     const fileName = err.fileName || err.filename
     if (fileName && err.lineNumber) {
       msg += `\n${fileName} @ ${err.lineNumber}`
-    } else if (err.lineNumber) {
+    }
+    else if (err.lineNumber) {
       msg += `\n@ ${err.lineNumber}`
     }
 
@@ -198,7 +191,8 @@ function debug(msg, err = null) {
 
     Zotero.debug(`EdTechHub: error: ${msg}`, 1)
 
-  } else {
+  }
+  else {
     Zotero.debug(`EdTechHub: ${msg}`)
 
   }
@@ -207,13 +201,15 @@ function debug(msg, err = null) {
 function zotero_itemmenu_popupshowing() {
   const selected = Zotero.getActiveZoteroPane().getSelectedItems()
 
-  const hidden = Zotero.EdTechHub.ready.isPending() || !selected.find(item => item.isRegularItem())
+  // bluebird promise has status
+  const pending = (EdTechHub.ready as any).isPending()
+  const hidden = pending || !selected.find(item => item.isRegularItem()) // eslint-disable-line @typescript-eslint/no-unsafe-return
   for (const elt of Array.from(document.getElementsByClassName('edtechhub-zotero-itemmenu-regularitem'))) {
     (elt as any).hidden = hidden
   }
 
   document.getElementById('edtechhub-duplicate-attachment').hidden =
-    Zotero.EdTechHub.ready.isPending()
+    pending
     || selected.length !== 1 || !selected[0].isAttachment() // must be a single attachment
     || ![Zotero.Attachments.LINK_MODE_LINKED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_URL].includes(selected[0].attachmentLinkMode) // not a linked or imported file
     || (selected[0].attachmentLinkMode === Zotero.Attachments.LINK_MODE_IMPORTED_URL && selected[0].attachmentContentType === 'text/html') // no web snapshots
@@ -225,18 +221,20 @@ class AlsoKnownAs {
   private aka: Set<string>
   private init: string
 
-  constructor(init: string = '', prefixString: string = '') {
+  constructor(init = '', prefixString = '') {
     try {
       init = init.trim()
       this.init = init
 
       if (prefixString === prefixLegacy) {
         this.aka = new Set(init.split(/; */).filter(aka => aka))
-      } else {
+      }
+      else {
         this.aka = new Set(init.split(/ +/).filter(aka => aka))
       }
-    } catch (error) {
-      debug('AlsoKnownAs.constructor error:' + JSON.stringify({ error2: error, aka: this.aka }))
+    }
+    catch (error) {
+      debug(`AlsoKnownAs.constructor error:${  JSON.stringify({ error2: error, aka: this.aka })}`)
     }
   }
 
@@ -271,22 +269,24 @@ class AlsoKnownAs {
   }
 }
 
-const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variable-name
+class EdTechHubMain {
   public ready: Promise<boolean>
   private dir: string
 
-  private initialized: boolean = false
+  private initialized = false
   private fieldID: {
-    DOI: number,
-    extra: number,
+    DOI: number
+    extra: number
   }
-  private translators: { file: string, translatorID: string }[] = []
+
+  public translators: { file: string, translatorID: string }[] = []
+  public uninstalled = false
 
   constructor() {
     const ready = Zotero.Promise.defer()
     this.ready = ready.promise
 
-    window.addEventListener('load', event => {
+    window.addEventListener('load', _event => {
       this.init(ready)
         .then(() => {
           document.getElementById('zotero-itemmenu').addEventListener('popupshowing', zotero_itemmenu_popupshowing, false)
@@ -297,15 +297,15 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
         })
     }, false)
 
-    window.addEventListener('unload', event => {
+    window.addEventListener('unload', _event => {
       document.getElementById('zotero-itemmenu').removeEventListener('popupshowing', zotero_itemmenu_popupshowing, false)
     }, false)
   }
 
-  private getAlsoKnownAs(item) {
+  public getAlsoKnownAs(item) {
     if (!Zotero.ItemFields.isValidForType(this.fieldID.extra, item.itemTypeID)) return new AlsoKnownAs
 
-    for (const line of (item.getField('extra') || '').split('\n')) {
+    for (const line of (item.getField('extra') as string || '').split('\n')) {
       if (line.startsWith(prefixLegacy)) {
         return new AlsoKnownAs(line.substring(prefixLegacy.length), prefixLegacy)
       }
@@ -317,7 +317,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     return (new AlsoKnownAs).add(itemKey(Zotero.URI.getItemURI(item)))
   }
 
-  private setAlsoKnownAs(item, alsoKnownAs: AlsoKnownAs) {
+  public setAlsoKnownAs(item, alsoKnownAs: AlsoKnownAs) {
     debug(`setAlsoKnownAs+ ${alsoKnownAs.toString()}`)
     // Need to remove line with prefixLegacy
     const extra = (item.getField('extra') || '')
@@ -335,24 +335,22 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     (async () => {
       await this.ready
       debug(`running ${method}`)
-      try {
-        this[method].apply(this, args)
-        debug(`done ${method}`)
-      } catch (err) {
-        debug(`err ${method}`)
-        debug(method, err)
-        flash(err.message)
-      }
-    })()
+      await this[method].apply(this, args) // eslint-disable-line prefer-spread
+      debug(`done ${method}`)
+    })().catch (err => {
+      debug(`err ${method}`)
+      debug(method, err)
+      flash(err.message)
+    })
   }
 
   public async assignKey() {
     await this.ready
 
-    const items = Zotero.getActiveZoteroPane().getSelectedItems().filter(item => item.isRegularItem())
+    const items: any[] = Zotero.getActiveZoteroPane().getSelectedItems().filter((item: any) => item.isRegularItem() as boolean)
 
     for (const item of items) {
-      debug('assignKey: ' + JSON.stringify({ item: item.id }))
+      debug(`assignKey: ${  JSON.stringify({ item: item.id })}`)
 
       const doi = { long: Zotero.ItemFields.isValidForType(this.fieldID.DOI, item.itemTypeID) ? item.getField('DOI') : '', short: '', assign: '' }
 
@@ -360,7 +358,8 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
       for (const line of item.getField('extra').split('\n')) {
         if (m = line.trim().match(/^DOI:\s*(.+)/i)) {
           doi.long = m[1]
-        } else if (m = line.trim().match(/^shortDOI:\s*(.+)/i)) {
+        }
+        else if (m = line.trim().match(/^shortDOI:\s*(.+)/i)) {
           doi.short = m[1]
         }
       }
@@ -380,7 +379,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
       if (!key && Zotero.ShortDOI && item.getTags().find(tag => [Zotero.ShortDOI.tag_invalid, Zotero.ShortDOI.tag_multiple, Zotero.ShortDOI.tag_nodoi].includes(tag.tag))) {
       }
       */
-      debug('assignKey: ' + JSON.stringify({ changed: alsoKnownAs.changed(), aka: alsoKnownAs.toString() }))
+      debug(`assignKey: ${  JSON.stringify({ changed: alsoKnownAs.changed(), aka: alsoKnownAs.toString() })}`)
       if (alsoKnownAs.changed()) {
         this.setAlsoKnownAs(item, alsoKnownAs)
         await item.saveTx()
@@ -389,7 +388,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
   }
 
   public async saveToNote() {
-    const items = Zotero.getActiveZoteroPane().getSelectedItems().filter(item => item.isRegularItem())
+    const items = Zotero.getActiveZoteroPane().getSelectedItems().filter(item => item.isRegularItem() as boolean)
 
     for (const item of items) {
       const note = new Zotero.Item('note')
@@ -397,7 +396,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
 
       let user = Zotero.Prefs.get('sync.server.username')
       user = user ? `${user}, ` : ''
-      note.setNote(`<p><b>Item details (${user}${new Date})</b></p>\n<pre>${Zotero.Utilities.text2html(await asRIS(item))}</pre>`)
+      note.setNote(`<p><b>Item details (${user}${new Date})</b></p>\n<pre>${Zotero.Utilities.text2html(await asRIS([item]))}</pre>`)
       note.parentKey = item.key
       await note.saveTx()
     }
@@ -406,7 +405,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
   public async duplicateAttachment() {
     await this.ready
 
-    const attachment = Zotero.getActiveZoteroPane().getSelectedItems().find(item => item.isAttachment())
+    const attachment = Zotero.getActiveZoteroPane().getSelectedItems().find(item => item.isAttachment() as boolean)
     const path = await attachment.getFilePathAsync()
     if (!path) return
 
@@ -424,12 +423,12 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
       parent ? this.getAlsoKnownAs(parent).first().replace(/[^a-z0-9]+/gi, '_') : null,
     ].filter(bn => bn).join('-'))
 
+    const dirName = OS.Path.dirname(path)
+    let copy
+    let postfix = 0
     switch (attachment.attachmentLinkMode) {
       case Zotero.Attachments.LINK_MODE_LINKED_FILE:
-        const dirName = OS.Path.dirname(path)
-        let copy
-        let postfix = 0
-        while (await OS.File.exists(copy = OS.Path.join(dirName, `${fileBaseName}${postfix ? '-' + postfix : ''}${ext}`))) {
+        while (await OS.File.exists(copy = OS.Path.join(dirName, `${fileBaseName}${postfix ? `-${  postfix}` : ''}${ext}`))) {
           postfix += 1
         }
         await OS.File.copy(path, copy)
@@ -472,7 +471,9 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     progressWin.show()
     await Zotero.Schema.schemaUpdatePromise
     progress.setText('Ready')
-    progressWin.startCloseTimer(500) // tslint:disable-line:no-magic-numbers
+    progressWin.startCloseTimer(500) // eslint-disable-line @typescript-eslint/no-magic-numbers
+
+    DebugLogSender.register('EdTechHub', [])
 
     this.dir = OS.Path.join(Zotero.DataDirectory.dir, 'edtechhub')
     await OS.File.makeDir(this.dir, { ignoreExisting: true })
@@ -488,14 +489,14 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
 
     const addons = await Zotero.getInstalledExtensions()
     // if (!addons.find(addon => addon.startsWith('Zotero DOI Manager '))) flash('Zotero-ShortDOI not installed', 'The short-doi plugin is not available, please install it from https://github.com/bwiernik/zotero-shortdoi')
-    if (!addons.find(addon => addon.startsWith('ZotFile '))) flash('ZotFile not installed', 'The ZotFile plugin is not available, please install it from http://zotfile.com/')
-    if (!addons.find(addon => addon.startsWith('Zutilo Utility for Zotero '))) flash('Zutilo not installed', 'The Zutilo plugin is not available, please install it from https://github.com/willsALMANJ/Zutilo')
+    if (!addons.find((addon: string) => addon.startsWith('ZotFile '))) flash('ZotFile not installed', 'The ZotFile plugin is not available, please install it from http://zotfile.com/')
+    if (!addons.find((addon: string) => addon.startsWith('Zutilo Utility for Zotero '))) flash('Zutilo not installed', 'The Zutilo plugin is not available, please install it from https://github.com/willsALMANJ/Zutilo')
 
     await this.installTranslators()
   }
 
-  private async copyToClipboard(translatorID) {
-    const items = Zotero.getActiveZoteroPane().getSelectedItems().filter(item => item.isRegularItem())
+  private async copyToClipboard(translatorID: string) {
+    const items: any[] = Zotero.getActiveZoteroPane().getSelectedItems().filter(item => item.isRegularItem() as boolean)
     const nitems = items.length // translate consumes the items
     if (!nitems) return
 
@@ -503,14 +504,15 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     if (text.match(/<a href=/)) {
       toClipboardHTML(text)
       flash(`${nitems} item(s) copied to clipboard as html`)
-    } else {
+    }
+    else {
       toClipboard(text)
       flash(`${nitems} item(s) copied to clipboard as text`)
     }
   }
 
   private async installTranslator(name) {
-    const translator = Zotero.File.getContentsFromURL(`resource://zotero-edtechhub/${name}`)
+    const translator: string = Zotero.File.getContentsFromURL(`resource://zotero-edtechhub/${name}`)
     const sep = '\n}\n'
     const split = translator.indexOf(sep) + sep.length
     const header = JSON.parse(translator.slice(0, split))
@@ -518,12 +520,12 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
 
     await Zotero.Translators.save(header, code)
 
-    this.translators.push({ file: header.label + '.js', translatorID: header.translatorID })
+    this.translators.push({ file: `${header.label}.js`, translatorID: header.translatorID })
 
     debug(`installed ${name}`)
   }
 
-  private async installTranslators() {
+  public async installTranslators() {
     debug('installing translators')
     await this.installTranslator('Bjoern2A_BjoernCitationStringTagged.js')
     await this.installTranslator('Bjoern2B_BjoernCitationStringTagged.js')
@@ -532,7 +534,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     await Zotero.Translators.reinit()
   }
 
-  private uninstallTranslators(name) {
+  public uninstallTranslators() {
     for (const { file } of this.translators) {
       const translator = Zotero.getTranslatorsDirectory()
       translator.append(file)
@@ -541,35 +543,10 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     this.translators = []
   }
 
-  public async debugLog() {
-    await this.ready
-
-    const service = 'https://transfer.sh/'
-
-    const log = []
-
-    const items = Zotero.getActiveZoteroPane().getSelectedItems() || []
-    if (items.length) {
-      log.push(put(`${service}items.rdf`, await translate(items, '14763d24-8ba0-45df-8f52-b8d1108e7ac9'))) // RDF
-      const f = OS.Path.join(this.dir, 'items.rdf')
-
-
-    }
-
-    log.push(put(`${service}debug-log.txt`, Zotero.getErrors(true).concat(
-      '',
-      '',
-      Zotero.Debug.getConsoleViewerOutput()
-    ).join('\n').trim()))
-
-    const responses = await Promise.all(log)
-    debug(`debug log: ${JSON.stringify(responses)}`)
-    alert(responses.map(url => url.trim()).join('\n'))
-  }
-
-  protected async notify(action, type, ids, extraData) {
+  protected async notify(action, type, ids, _extraData) {
     if (type !== 'item') return // should never happen
 
+    let items: any[]
     switch (action) {
       case 'delete':
       case 'trash':
@@ -577,7 +554,7 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
 
       case 'add':
       case 'modify':
-        const items = await Zotero.Items.getAsync(ids)
+        items = await Zotero.Items.getAsync(ids)
         for (const item of items) {
           await item.loadAllData()
           const itemRelations = item.getRelations()
@@ -590,13 +567,12 @@ const EdTechHub = Zotero.EdTechHub || new class { // tslint:disable-line:variabl
     }
   }
 }
-
-export = EdTechHub
+EdTechHub = Zotero.EdTechHub = Zotero.EdTechHub || new EdTechHubMain
 
 Components.utils.import('resource://gre/modules/AddonManager.jsm')
 declare const AddonManager: any
 AddonManager.addAddonListener({
-  onUninstalling(addon, needsRestart) {
+  onUninstalling(addon, _needsRestart) { // eslint-disable-line prefer-arrow/prefer-arrow-functions
     if (addon.id !== 'edtechhub@edtechhub.org') return null
 
     EdTechHub.uninstallTranslators()
@@ -608,19 +584,18 @@ AddonManager.addAddonListener({
     EdTechHub.uninstalled = true
   },
 
-  onDisabling(addon, needsRestart) { this.onUninstalling(addon, needsRestart) },
+  onDisabling(addon, needsRestart) { this.onUninstalling(addon, needsRestart) }, // eslint-disable-line prefer-arrow/prefer-arrow-functions
 
-  onOperationCancelled(addon, needsRestart) {
+  onOperationCancelled(addon, _needsRestart) { // eslint-disable-line prefer-arrow/prefer-arrow-functions
     if (addon.id !== 'edtechhub@edtechhub.org') return null
-    // tslint:disable-next-line:no-bitwise
-    if (addon.pendingOperations & (AddonManager.PENDING_UNINSTALL | AddonManager.PENDING_DISABLE)) return null
+    if (addon.pendingOperations & (AddonManager.PENDING_UNINSTALL | AddonManager.PENDING_DISABLE)) return null // eslint-disable-line no-bitwise
 
     // uninstall cancelled, re-do installation.
-    EdTechHub.installTranslators()
+    EdTechHub.installTranslators().catch(err => {
+      debug('uninstallcancel failed', err)
+      flash(err.message)
+    })
 
-    delete EdTechHub.uninstalled
+    EdTechHub.uninstalled = false
   },
 })
-
-// otherwise this entry point won't be reloaded: https://github.com/webpack/webpack/issues/156
-delete require.cache[module.id]
