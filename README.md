@@ -9,6 +9,7 @@ Install by downloading the [latest version](https://github.com/edtechhub/zotero-
 
 This is a plugin for Zotero, developed by [@retorquere](https://github.com/retorquere) and [@bjohas](https://github.com/bjohas) for use in the EdTech Hub. Contributions by @ZainaSaadeddin and @sheraz-ishaq.
 
+To make full use of the KCite function in Google Docs/Slides, also install this Google Docs/Slides add-on: https://opendeved.net/our-tools/bzotero/.
 
 # Features of the plugin
 
