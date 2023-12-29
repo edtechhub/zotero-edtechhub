@@ -527,6 +527,7 @@ class EdTechHubMain {
 
   public async installTranslators() {
     debug('installing translators')
+    await Zotero.Translators.init()
     await this.installTranslator('Bjoern2A_BjoernCitationStringTagged.js')
     await this.installTranslator('Bjoern2B_BjoernCitationStringTagged.js')
     await this.installTranslator('Bjoern2C_BjoernCitationStringTagged.js')
