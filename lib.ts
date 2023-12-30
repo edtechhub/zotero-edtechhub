@@ -2,7 +2,7 @@ declare const Zotero: any
 declare const Components: any
 declare const Services: any
 
-import l10n = require('./locale/en-US/zotero-edtechhub.ftl')
+const l10n = require('./locale/en-US/zotero-edtechhub.ftl')
 
 Services.wm.addListener({
   onOpenWindow: xulWindow => {

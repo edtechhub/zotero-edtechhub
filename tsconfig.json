@@ -17,19 +17,11 @@
     ]
   },
   "include": [
-    "bin",
-    "loader",
-    "plugin",
-    "script",
-    "webpack",
-    "content/**/*",
-    "resource/**/*",
-    "zotero-webpack/**/*",
-    "setup/**/*",
     "*.ts"
   ],
   "exclude": [
     "node_modules",
+    "locale/**/*.*",
     "**/*.spec.ts",
     "typings"
   ]
