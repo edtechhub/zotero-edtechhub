@@ -99,24 +99,26 @@ export async function install(): Promise<void> {
 export async function startup({ id, version, resourceURI, rootURI = resourceURI.spec }): Promise<void> {
   await waitForZotero()
 
-  log('Starting')
-
-  // 'Services' may not be available in Zotero 6
-  if (typeof Services == 'undefined') {
-    // eslint-disable-next-line @typescript-eslint/no-shadow
-    var { Services } = ChromeUtils.import('resource://gre/modules/Services.jsm')
-  }
-
-  // Read prefs from prefs.js when the plugin in Zotero 6
-  if (Zotero.platformMajorVersion < 102) { // eslint-disable-line @typescript-eslint/no-magic-numbers
-    setDefaultPrefs(rootURI)
-  }
-
-  // Add DOM elements to the main Zotero pane
   try {
+    log('Starting')
+
+    // 'Services' may not be available in Zotero 6
+    if (typeof Services == 'undefined') {
+      // eslint-disable-next-line @typescript-eslint/no-shadow
+      var { Services } = ChromeUtils.import('resource://gre/modules/Services.jsm')
+    }
+
+    // Read prefs from prefs.js when the plugin in Zotero 6
+    /*
+    if (Zotero.platformMajorVersion < 102) { // eslint-disable-line @typescript-eslint/no-magic-numbers
+      setDefaultPrefs(rootURI)
+    }
+    */
+
     log('loading lib')
     Services.scriptloader.loadSubScript(`${rootURI}lib.js`, { Zotero })
     Zotero.EdTechHub.startup()
+    log('Started')
   }
   catch (err) {
     log(`EdTechHub: startup error: ${err}`)

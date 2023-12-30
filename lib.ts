@@ -143,7 +143,6 @@ function debug(msg, err = null) {
   }
   else {
     Zotero.debug(`EdTechHub: ${msg}`)
-
   }
 }
 
@@ -324,6 +323,17 @@ class EdTechHubMain {
   }
 
   async startup() {
+    try {
+      debug('starting...')
+      await this.start_up()
+      debug('started')
+    }
+    catch (err) {
+      debug('failed to start', err)
+    }
+  }
+
+  async start_up() {
     const ready = Zotero.Promise.defer()
     this.ready = ready.promise
 
