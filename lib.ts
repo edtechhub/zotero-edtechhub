@@ -7,9 +7,11 @@ const l10n = require('./locale/en-US/zotero-edtechhub.ftl')
 Services.wm.addListener({
   onOpenWindow: xulWindow => {
     const win: Window = xulWindow.QueryInterface(Components.interfaces.nsIInterfaceRequestor).getInterface(Components.interfaces.nsIDOMWindow)
-    win.addEventListener('load', function listener() { // eslint-disable-line prefer-arrow/prefer-arrow-functions
-      Zotero.EdTechHub?.ui()
-    }, false)
+    switch (win.location.href) {
+      case 'chrome://zotero/content/standalone/standalone.xul':
+      case 'chrome://zotero/content/zoteroPane.xhtml':
+        Zotero.EdTechHub?.ui('new window')
+    }
   },
   // onCloseWindow: () => { },
   // onWindowTitleChange: _xulWindow => { },
@@ -230,7 +232,8 @@ class EdTechHubMain {
   public translators: { file: string, translatorID: string }[] = []
   public uninstalled = false
 
-  ui() {
+  ui(reason: string) {
+    debug(`installing UI: ${reason}`)
     const win = Zotero.getMainWindow()
     const doc = win.document
 
@@ -323,17 +326,6 @@ class EdTechHubMain {
   }
 
   async startup() {
-    try {
-      debug('starting...')
-      await this.start_up()
-      debug('started')
-    }
-    catch (err) {
-      debug('failed to start', err)
-    }
-  }
-
-  async start_up() {
     const ready = Zotero.Promise.defer()
     this.ready = ready.promise
 
@@ -438,7 +430,7 @@ class EdTechHubMain {
 
     ready.resolve(true)
 
-    this.ui()
+    this.ui('startup')
   }
 
   shutdown() {
