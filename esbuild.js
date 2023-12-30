@@ -2,7 +2,7 @@ const path = require('path')
 const fs = require('fs')
 const esbuild = require('esbuild')
 const rmrf = require('rimraf')
-const { parse: ftl } = require('@fluent/syntax')
+const { parse: parseftl } = require('@fluent/syntax')
 
 rmrf.sync('gen')
 
@@ -21,8 +21,8 @@ const ftl = {
       const text = await fs.promises.readFile(args.path, 'utf-8')
 
       const l10n = {}
-      for (const message of ftl(text).body) {
-        l10n[message.id.name] = message.value.elements.map{|element| element.value}.join('')
+      for (const message of parseftl(text).body) {
+        l10n[message.id.name] = message.value.elements.map(element => element.value).join('')
       }
 
       return {

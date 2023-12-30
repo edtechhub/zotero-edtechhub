@@ -1,5 +1,6 @@
 declare const Zotero: any
 declare const Components: any
+declare const Services: any
 
 import l10n = require('./locale/en-US/zotero-edtechhub.ftl')
 
@@ -153,8 +154,8 @@ function zotero_itemmenu_popupshowing() {
   // bluebird promise has status
   const pending = (EdTechHub.ready as any).isPending()
   const hidden = pending || !selected.find(item => item.isRegularItem()) // eslint-disable-line @typescript-eslint/no-unsafe-return
-  for (const elt of Array.from(doc.getElementsByClassName('edtechhub-zotero-itemmenu-regularitem'))) {
-    (elt as any).hidden = hidden
+  for (const elt of Array.from(doc.getElementsByClassName('edtechhub-zotero-itemmenu-regularitem') as HTMLElement[])) {
+    elt.hidden = hidden
   }
 
   doc.getElementById('edtechhub-duplicate-attachment').hidden =
@@ -238,14 +239,14 @@ class EdTechHubMain {
       XUL: 'http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul',
       HTML: 'http://www.w3.org/1999/xhtml',
     }
-    function create(name: string, attrs: Record<string, number | string | Handler | HTMLElement[]> = {}): HTMLElement {
+    function create(name: string, attrs: Record<string, number | string | Function | HTMLElement[]> = {}): HTMLElement {
       const children: HTMLElement[] = (attrs.$ as unknown as HTMLElement[]) || []
       delete attrs.$
 
       const namespace = name.startsWith('html:') ? NAMESPACE.HTML : NAMESPACE.XUL
       name = name.replace('html:', '')
 
-      const elt: HTMLElement = is7
+      const elt: HTMLElement = Zotero.platformMajorVersion >= 102 // eslint-disable-line @typescript-eslint/no-magic-numbers
         ? doc[ namespace === NAMESPACE.XUL ? 'createXULElement' : 'createElement' ](name) as HTMLElement
         : doc.createElementNS(namespace, name) as HTMLElement
       attrs.class = `edtechhub ${attrs.class || ''}`.trim()
@@ -283,7 +284,7 @@ class EdTechHubMain {
 
     win.addEventListener('unload', _event => {
       doc.getElementById('zotero-itemmenu').removeEventListener('popupshowing', zotero_itemmenu_popupshowing, false)
-      for (const elt of Array.from(doc.getElementsByClassName('edtechhub'))) {
+      for (const elt of Array.from(doc.getElementsByClassName('edtechhub') as HTMLElement[])) {
         elt.remove()
       }
     }, false)
@@ -292,37 +293,37 @@ class EdTechHubMain {
     itemmenu.appendChild(create('menuseparator'))
     itemmenu.appendChild(create('menuitem', {
       class: 'edtechhub-zotero-itemmenu-regularitem',
-      label: l10n['edtechhub_Bjoern2A_BjoernCitationStringTagged'],
-      oncommand: () => Zotero.EdTechHub.run('copyToClipboard', '4ec4a50b-e979-448f-af4c-e5b46d1a3b03')
+      label: l10n.edtechhub_Bjoern2A_BjoernCitationStringTagged,
+      oncommand: () => void Zotero.EdTechHub.run('copyToClipboard', '4ec4a50b-e979-448f-af4c-e5b46d1a3b03'),
     }))
     itemmenu.appendChild(create('menuitem', {
       class: 'edtechhub-zotero-itemmenu-regularitem',
-      label: l10n['edtechhub_Bjoern2C_BjoernCitationStringTagged'],
-      oncommand: () => Zotero.EdTechHub.run('copyToClipboard', 'fe1c68d8-aa8e-11eb-85c1-1799e2c1b06e')
+      label: l10n.edtechhub_Bjoern2C_BjoernCitationStringTagged,
+      oncommand: () => void Zotero.EdTechHub.run('copyToClipboard', 'fe1c68d8-aa8e-11eb-85c1-1799e2c1b06e'),
     }))
     itemmenu.appendChild(create('menuitem', {
       class: 'edtechhub-zotero-itemmenu-regularitem',
-      label: l10n['edtechhub_Bjoern7_ETHref'],
-      oncommand: () => Zotero.EdTechHub.run('copyToClipboard', 'ba5f8764-3966-11ea-9cd5-5b52329a4e4c')
+      label: l10n.edtechhub_Bjoern7_ETHref,
+      oncommand: () => void Zotero.EdTechHub.run('copyToClipboard', 'ba5f8764-3966-11ea-9cd5-5b52329a4e4c'),
     }))
     itemmenu.appendChild(create('menuitem', {
       class: 'edtechhub-zotero-itemmenu-regularitem',
       label: l10n['edtechhub_assign-key'],
-      oncommand: () => Zotero.EdTechHub.run('assignKey')
+      oncommand: () => void Zotero.EdTechHub.run('assignKey'),
     }))
     itemmenu.appendChild(create('menuitem', {
-      class: 'edtechhub-zotero-itemmenu-regularitem', 
+      class: 'edtechhub-zotero-itemmenu-regularitem',
       label: l10n['edtechhub_save-to-note'],
-      oncommand: () => Zotero.EdTechHub.run('saveToNote')
+      oncommand: () => void Zotero.EdTechHub.run('saveToNote'),
     }))
     itemmenu.appendChild(create('menuitem', {
       id: 'edtechhub-duplicate-attachment',
       label: l10n['edtechhub_duplicate-attachment'],
-      oncommand: () => Zotero.EdTechHub.run('duplicateAttachment')
+      oncommand: () => void Zotero.EdTechHub.run('duplicateAttachment'),
     }))
   }
 
-  startup() {
+  async startup() {
     const ready = Zotero.Promise.defer()
     this.ready = ready.promise
 
@@ -435,7 +436,7 @@ class EdTechHubMain {
     const doc = win.document
 
     doc.getElementById('zotero-itemmenu').removeEventListener('popupshowing', zotero_itemmenu_popupshowing, false)
-    for (const elt of Array.from(doc.getElementsByClassName('edtechhub'))) {
+    for (const elt of Array.from(doc.getElementsByClassName('edtechhub') as HTMLElement[])) {
       elt.remove()
     }
   }

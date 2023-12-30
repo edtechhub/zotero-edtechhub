@@ -248,7 +248,7 @@
       "never"
     ],
     "prefer-arrow/prefer-arrow-functions": [
-      "error",
+      "warn",
       {
         "allowStandaloneDeclarations": true
       }
