@@ -40,6 +40,7 @@
     "iconURL": "chrome://zotero-edtechhub/skin/edtechhub.png"
   },
   "devDependencies": {
+    "@fluent/syntax": "^0.19.0",
     "@typescript-eslint/eslint-plugin": "^5.12.1",
     "@typescript-eslint/parser": "^5.12.1",
     "esbuild": "^0.14.23",
