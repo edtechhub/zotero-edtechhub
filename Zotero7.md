@@ -1,4 +1,4 @@
-I converted the plugin to bootstrapped. This has the side benefit that it can be installed/upgraded without restarting Zotero, but it's primarily because Zotero 7 demands it, and it allows 7/6 compatibility.
+I converted the plugin to bootstrapped. This has the side benefit that it can be installed/upgraded without restarting Zotero, but it's primarily because Zotero 7 demands it, and it is the easiest way to get 7/6 compatibility (if possible, which isn't always the case, but it is here).
 
 There is an edge case on this compatibility -- Zotero 6 does not fully implement async bootstrap methods, so if the bootstrap shutdown must do cleanup, it will likely fail. But this plugin doesn't, and it's simpler this way. If the issue arises, I have a workaround (which I use for my own plugin.
 
