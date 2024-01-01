@@ -31,7 +31,7 @@
     "ts-loader": "^9.5.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
-    "zotero-plugin": "^2.0.12"
+    "zotero-plugin": "^2.0.13"
   },
   "xpi": {
     "name": "EdTechHub for Zotero",
@@ -45,7 +45,7 @@
     "esbuild": "^0.19.11",
     "eslint": "^8.56.0",
     "eslint-plugin-import": "^2.29.1",
-    "eslint-plugin-jsdoc": "^46.9.1",
+    "eslint-plugin-jsdoc": "^47.0.2",
     "eslint-plugin-prefer-arrow": "^1.2.3"
   }
 }
