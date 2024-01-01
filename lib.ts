@@ -10,7 +10,7 @@ Services.wm.addListener({
     switch (win.location.href) {
       case 'chrome://zotero/content/standalone/standalone.xul':
       case 'chrome://zotero/content/zoteroPane.xhtml':
-        Zotero.EdTechHub?.ui('new window')
+        Zotero.EdTechHub?.ui(win)
     }
   },
   // onCloseWindow: () => { },
@@ -232,9 +232,7 @@ class EdTechHubMain {
   public translators: { file: string, translatorID: string }[] = []
   public uninstalled = false
 
-  ui(reason: string) {
-    debug(`installing UI: ${reason}`)
-    const win = Zotero.getMainWindow()
+  ui(win : Window) {
     const doc = win.document
 
     const NAMESPACE = {
@@ -273,23 +271,7 @@ class EdTechHubMain {
       return elt
     }
 
-    win.addEventListener('load', _event => {
-      this.ready
-        .then(() => {
-          doc.getElementById('zotero-itemmenu').addEventListener('popupshowing', zotero_itemmenu_popupshowing, false)
-        })
-        .catch(err => {
-          debug('init failed', err)
-          flash(err.message)
-        })
-    }, false)
-
-    win.addEventListener('unload', _event => {
-      doc.getElementById('zotero-itemmenu').removeEventListener('popupshowing', zotero_itemmenu_popupshowing, false)
-      for (const elt of Array.from(doc.getElementsByClassName('edtechhub') as HTMLElement[])) {
-        elt.remove()
-      }
-    }, false)
+    doc.getElementById('zotero-itemmenu').addEventListener('popupshowing', zotero_itemmenu_popupshowing, false)
 
     const itemmenu = doc.getElementById('zotero-itemmenu')
     itemmenu.appendChild(create('menuseparator'))
@@ -323,6 +305,13 @@ class EdTechHubMain {
       label: l10n['edtechhub_duplicate-attachment'],
       oncommand: () => void Zotero.EdTechHub.run('duplicateAttachment'),
     }))
+
+    win.addEventListener('unload', _event => {
+      doc.getElementById('zotero-itemmenu').removeEventListener('popupshowing', zotero_itemmenu_popupshowing, false)
+      for (const elt of Array.from(doc.getElementsByClassName('edtechhub') as HTMLCollectionOf<HTMLElement>)) {
+        elt.remove()
+      }
+    }, false)
   }
 
   async startup() {
@@ -430,7 +419,7 @@ class EdTechHubMain {
 
     ready.resolve(true)
 
-    this.ui('startup')
+    this.ui(Zotero.getMainWindow() as Window)
   }
 
   shutdown() {
