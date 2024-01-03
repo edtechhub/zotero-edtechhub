@@ -1,6 +1,6 @@
 {
   "name": "zotero-edtechhub",
-  "version": "0.0.36",
+  "version": "0.0.37",
   "description": "EdTech hub companion plugin for Zotero",
   "scripts": {
     "lint": "eslint . --ext .ts --cache --cache-location .eslintcache/",
