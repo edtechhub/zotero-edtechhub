@@ -9,5 +9,6 @@ The main changes are:
 * Stuff that lived in `EdTechHubMain.constructor` and `EdTechHubMain.init` have been moved into `EdTechHubMain.startup`, which is called on startup.
 * Overlays don't work anymore in Zotero 7, so the UI construction has been moved into `EdTechHubMain.ui`. This adds a convenience method to create XUL elements for the ui. These have a CSS class to mark them for removal if the ETH plugin is shut down/removed.
 * Translations have been moved to `locale/en-US/zotero-edtechhub.ftl`. This is the new localization system for Zotero 7. It does not work for Zotero 6, so I've added a kludge; since the ETH plugin only has english translations anyway, I have the build bake the strings into the plugin. This will have to change in due time, but we can probably wait until Zotero 7 is GA and remove the kludge. Should it be necessary I have a way to load the strings for other languages, but this is simplest for now.
+* Zotero 7 doesn't support resource: and skin: URLs anymore, so moved these both to content, which is still supported with the aom loader in bootstrap.ts
 
 I think this is broadly it. Please go over the code and ask about things that are unclear. The easiest way to get an overview of what changed is to run a `git diff` between the `gh-88` branch and the `master` branch.

@@ -9,7 +9,8 @@
     "postbuild": "zotero-plugin-zipup build zotero-edtechhub",
     "release": "zotero-plugin-release",
     "postversion": "git push --follow-tags",
-    "start": "zotero-start"
+    "start": "zotero-start",
+    "beta": "zotero-start --beta"
   },
   "repository": {
     "type": "git",

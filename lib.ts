@@ -233,6 +233,7 @@ class EdTechHubMain {
   public uninstalled = false
 
   ui(win : Window) {
+    debug('building UI')
     const doc = win.document
 
     const NAMESPACE = {
@@ -415,7 +416,13 @@ class EdTechHubMain {
       flash('Zutilo not installed', 'The Zutilo plugin is not available, please install it from https://github.com/willsALMANJ/Zutilo')
     }
 
-    await this.installTranslators()
+    try {
+      debug('installing translators')
+      await this.installTranslators()
+    }
+    catch (err) {
+      debug(`translator installation failed: ${err}`)
+    }
 
     ready.resolve(true)
 
@@ -607,7 +614,7 @@ class EdTechHubMain {
   }
 
   private async installTranslator(name) {
-    const translator: string = Zotero.File.getContentsFromURL(`resource://zotero-edtechhub/${name}`)
+    const translator: string = Zotero.File.getContentsFromURL(`chrome://zotero-edtechhub/content/resource/${name}`)
     const sep = '\n}\n'
     const split = translator.indexOf(sep) + sep.length
     const header = JSON.parse(translator.slice(0, split))

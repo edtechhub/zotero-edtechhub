@@ -3,13 +3,8 @@
 declare const dump: (msg: string) => void
 declare const Components: any
 declare const ChromeUtils: any
-declare var Services: any
-const {
-  interfaces: Ci,
-  results: Cr,
-  utils: Cu,
-  Constructor: CC,
-} = Components
+
+var Services: any
 
 if (typeof Zotero == 'undefined') {
   var Zotero
@@ -32,7 +27,7 @@ async function waitForZotero() {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-shadow
-  var { Services } = ChromeUtils.import('resource://gre/modules/Services.jsm')
+  Services = ChromeUtils.import('resource://gre/modules/Services.jsm').Services
   var windows = Services.wm.getEnumerator('navigator:browser')
   var found = false
   while (windows.hasMoreElements()) {
@@ -48,8 +43,8 @@ async function waitForZotero() {
       var listener = {
         onOpenWindow(aWindow) {
           // Wait for the window to finish loading
-          const domWindow = aWindow.QueryInterface(Ci.nsIInterfaceRequestor)
-            .getInterface(Ci.nsIDOMWindowInternal || Ci.nsIDOMWindow)
+          const domWindow = aWindow.QueryInterface(Components.interfaces.nsIInterfaceRequestor)
+            .getInterface(Components.interfaces.nsIDOMWindowInternal || Components.interfaces.nsIDOMWindow)
           domWindow.addEventListener('load', function() {
             domWindow.removeEventListener('load', arguments.callee, false)
             if (domWindow.Zotero) {
@@ -96,16 +91,26 @@ export async function install(): Promise<void> {
   log('Installed')
 }
 
+let chromeHandle
 export async function startup({ id, version, resourceURI, rootURI = resourceURI.spec }): Promise<void> {
   await waitForZotero()
 
   try {
-    log('Starting')
+    log(`Starting ${rootURI}`)
+
+    if (Zotero.platformMajorVersion >= 102) { // eslint-disable-line @typescript-eslint/no-magic-numbers
+      const aomStartup = Components.classes['@mozilla.org/addons/addon-manager-startup;1'].getService(Components.interfaces.amIAddonManagerStartup)
+      const manifestURI = Services.io.newURI(`${rootURI}manifest.json`)
+      chromeHandle = aomStartup.registerChrome(manifestURI, [
+        [ 'content', 'zotero-edtechhub', 'content/'                  ],
+        [ 'locale' , 'zotero-edtechhub', 'en-US'   , 'locale/en-US/' ],
+      ])
+    }
 
     // 'Services' may not be available in Zotero 6
     if (typeof Services == 'undefined') {
       // eslint-disable-next-line @typescript-eslint/no-shadow
-      var { Services } = ChromeUtils.import('resource://gre/modules/Services.jsm')
+      Services = ChromeUtils.import('resource://gre/modules/Services.jsm').Services
     }
 
     // Read prefs from prefs.js when the plugin in Zotero 6
@@ -127,6 +132,11 @@ export async function startup({ id, version, resourceURI, rootURI = resourceURI.
 
 export function shutdown() {
   log('Shutting down')
+
+  if (typeof chromeHandle !== 'undefined') {
+    chromeHandle.destruct()
+    chromeHandle = undefined
+  }
 
   if (Zotero.EdTechHub) {
     try {
