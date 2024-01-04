@@ -130,7 +130,7 @@ export async function startup({ id, version, resourceURI, rootURI = resourceURI.
   }
 }
 
-export function shutdown() {
+export function shutdown(): void {
   log('Shutting down')
 
   if (typeof chromeHandle !== 'undefined') {
@@ -149,7 +149,7 @@ export function shutdown() {
   }
 }
 
-export function uninstall() {
+export function uninstall(): void {
   // `Zotero` object isn't available in `uninstall()` in Zotero 6, so log manually
   if (typeof Zotero == 'undefined') {
     dump('EdTechHub: Uninstalled\n\n')

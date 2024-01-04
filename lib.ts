@@ -20,18 +20,12 @@ Services.wm.addListener({
 var EdTechHub: EdTechHubMain // eslint-disable-line no-var
 
 import { DebugLog as DebugLogSender } from 'zotero-plugin/debug-log'
+import { patch as $patch$, unpatch as $unpatch$ } from './monkey-patch'
 
 Components.utils.import('resource://gre/modules/osfile.jsm')
 declare const OS: any
 
 import sanitize_filename = require('sanitize-filename')
-
-const marker = 'EdTechHubMonkeyPatched'
-function $patch$(object, method, patcher) {
-  if (object[method][marker]) return
-  object[method] = patcher(object[method])
-  object[method][marker] = true
-}
 
 function flash(title, body = null, timeout = 8) { // eslint-disable-line @typescript-eslint/no-magic-numbers
   try {
@@ -149,6 +143,8 @@ function debug(msg, err = null) {
 }
 
 function zotero_itemmenu_popupshowing() {
+  if (!Zotero.EdTechHub) return
+
   const selected = Zotero.getActiveZoteroPane().getSelectedItems()
 
   const doc = Zotero.getMainWindow().document
@@ -240,6 +236,7 @@ class EdTechHubMain {
       XUL: 'http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul',
       HTML: 'http://www.w3.org/1999/xhtml',
     }
+    // eslint-disable-next-line prefer-arrow/prefer-arrow-functions
     function create(name: string, attrs: Record<string, number | string | Function | HTMLElement[]> = {}): HTMLElement {
       const children: HTMLElement[] = (attrs.$ as unknown as HTMLElement[]) || []
       delete attrs.$
@@ -340,6 +337,19 @@ class EdTechHubMain {
       extra: Zotero.ItemFields.getID('extra'),
     }
 
+    $patch$(Zotero.Items, '_mergePDFAttachments', _original => async function(item, otherItems) {
+      Zotero.DB.requireTransaction()
+      for (const otherItem of otherItems) {
+        for (const otherAttachment of await this.getAsync(otherItem.getAttachments(true))) {
+          if (otherAttachment.isPDFAttachment()) {
+            otherAttachment.parentItemID = item.id
+            await otherAttachment.save()
+          }
+        }
+      }
+      return new Map
+    })
+
     $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
       let alsoKnownAs: AlsoKnownAs = null
       let history: string = null
@@ -433,6 +443,7 @@ class EdTechHubMain {
     const win = Zotero.getMainWindow()
     const doc = win.document
 
+    $unpatch$()
     doc.getElementById('zotero-itemmenu').removeEventListener('popupshowing', zotero_itemmenu_popupshowing, false)
     for (const elt of Array.from(doc.getElementsByClassName('edtechhub') as HTMLElement[])) {
       elt.remove()
