@@ -280,6 +280,11 @@ class EdTechHubMain {
     }))
     itemmenu.appendChild(create('menuitem', {
       class: 'edtechhub-zotero-itemmenu-regularitem',
+      label: l10n.edtechhub_Bjoern2B_BjoernCitationStringTagged,
+      oncommand: () => void Zotero.EdTechHub.run('copyToClipboard', 'b46d575e-396c-11ea-8ee0-0741699b71ec'),
+    }))
+    itemmenu.appendChild(create('menuitem', {
+      class: 'edtechhub-zotero-itemmenu-regularitem',
       label: l10n.edtechhub_Bjoern2C_BjoernCitationStringTagged,
       oncommand: () => void Zotero.EdTechHub.run('copyToClipboard', 'fe1c68d8-aa8e-11eb-85c1-1799e2c1b06e'),
     }))
