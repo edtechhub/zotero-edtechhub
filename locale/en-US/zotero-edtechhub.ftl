@@ -6,5 +6,5 @@ edtechhub_debug-log = Send EdTech Hub/KCite debug log
 
 edtechhub_Bjoern2A_BjoernCitationStringTagged = KCite: (Author, Year)
 edtechhub_Bjoern2B_BjoernCitationStringTagged = KCite: Author (Year)
-edtechhub_Bjoern2C_BjoernCitationStringTagged = KCite: Title, Author (Year)
+edtechhub_Bjoern2C_BjoernCitationStringTagged = KCite: Title (Author, Year)
 edtechhub_Bjoern7_ETHref = KCite: Share
