@@ -20,7 +20,7 @@ function doExport() {
 	// Configure this:
 	const ashtml = true;
 	// The citations have a bracket around the year only:
-	const year_in_brackets = true;
+	const year_in_brackets = false;
 	// Include the item title (you probably want year_in_brackets = false)
 	const show_title = true;
 	// Append the Zotero locator
