@@ -180,7 +180,7 @@ function formatOneCitation(item, before_date, after_date, ashtml, item_beginning
 	var itemidentifier = "";
 	var citationstring = "" + mem.get() + before_date + memdate.get() + year_letter + after_date;
 	if (ashtml) {
-		itemidentifier = `https://ref.opendeved.net/zo/zg/${lib}/7/${item.key}/${citationstring}`
+		itemidentifier = `https://ref.opendeved.net/g/${lib}/${item.key}/${citationstring}`
 	} else {
 		itemidentifier = prefix + lib + ":" + item.key
 	}
