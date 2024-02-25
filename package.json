@@ -32,7 +32,7 @@
     "ts-loader": "^9.5.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
-    "zotero-plugin": "^2.0.13"
+    "zotero-plugin": "^2.0.14"
   },
   "xpi": {
     "name": "EdTechHub for Zotero",
@@ -43,12 +43,12 @@
   },
   "devDependencies": {
     "@fluent/syntax": "^0.19.0",
-    "@typescript-eslint/eslint-plugin": "^6.19.0",
-    "@typescript-eslint/parser": "^6.19.0",
-    "esbuild": "^0.19.11",
-    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.2",
+    "@typescript-eslint/parser": "^7.0.2",
+    "esbuild": "^0.20.1",
+    "eslint": "^8.57.0",
     "eslint-plugin-import": "^2.29.1",
-    "eslint-plugin-jsdoc": "^48.0.2",
+    "eslint-plugin-jsdoc": "^48.2.0",
     "eslint-plugin-prefer-arrow": "^1.2.3"
   }
 }
