@@ -30,6 +30,7 @@
         "default": "array"
       }
     ],
+    "@typescript-eslint/no-magic-numbers": "off",
     "@typescript-eslint/await-thenable": "error",
     "@typescript-eslint/ban-ts-comment": "warn",
     "@typescript-eslint/ban-types": "off",
@@ -199,10 +200,6 @@
     "no-invalid-this": "off",
     "no-irregular-whitespace": "error",
     "no-magic-numbers": "off",
-    "@typescript-eslint/no-magic-numbers": [ "error", {
-      "ignore": [ -1, 0, 1, 2 ],
-      "ignoreEnums": true
-    }],
     "no-new-wrappers": "error",
     "no-redeclare": "error",
     "no-throw-literal": "error",

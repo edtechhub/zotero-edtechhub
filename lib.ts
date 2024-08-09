@@ -1,6 +1,10 @@
 declare const Zotero: any
 declare const Components: any
 declare const Services: any
+declare let OS: any
+
+import { OS as $OS } from './osfile'
+if (typeof OS === 'undefined') OS = $OS
 
 const l10n = require('./locale/en-US/zotero-edtechhub.ftl')
 
@@ -21,9 +25,6 @@ var EdTechHub: EdTechHubMain // eslint-disable-line no-var
 
 import { DebugLog as DebugLogSender } from 'zotero-plugin/debug-log'
 import { patch as $patch$, unpatch as $unpatch$ } from './monkey-patch'
-
-Components.utils.import('resource://gre/modules/osfile.jsm')
-declare const OS: any
 
 import sanitize_filename = require('sanitize-filename')
 
@@ -420,16 +421,17 @@ class EdTechHubMain {
       return merged // eslint-disable-line @typescript-eslint/no-unsafe-return
     })
 
+    /*
+    const checks = {
+      'Zotero DOI Manager ': [ 'Zotero-ShortDOI not installed', 'The short-doi plugin is not available, please install it from https://github.com/bwiernik/zotero-shortdoi' ],
+      'ZotFile ': [ 'ZotFile not installed', 'The ZotFile plugin is not available, please install it from http://zotfile.com/' ],
+      'Zutilo Utility for Zotero ': [ 'Zutilo not installed', 'The Zutilo plugin is not available, please install it from https://github.com/willsALMANJ/Zutilo' ],
+    }
     const addons = await Zotero.getInstalledExtensions()
-    // if (!addons.find(addon => addon.startsWith('Zotero DOI Manager '))) {
-    //  flash('Zotero-ShortDOI not installed', 'The short-doi plugin is not available, please install it from https://github.com/bwiernik/zotero-shortdoi')
-    // }
-    if (!addons.find((addon: string) => addon.startsWith('ZotFile '))) {
-      flash('ZotFile not installed', 'The ZotFile plugin is not available, please install it from http://zotfile.com/')
+    for (const [ name, [ title, body ] ] of Object.entries(checks)) {
+      if (!addons.find((addon: string) => addon.startsWith(name))) flash(title, body)
     }
-    if (!addons.find((addon: string) => addon.startsWith('Zutilo Utility for Zotero '))) {
-      flash('Zutilo not installed', 'The Zutilo plugin is not available, please install it from https://github.com/willsALMANJ/Zutilo')
-    }
+    */
 
     try {
       debug('installing translators')

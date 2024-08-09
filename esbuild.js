@@ -81,6 +81,7 @@ async function bundle(config) {
 }
 
 async function build() {
+
   await bundle({
     exportGlobals: true,
     entryPoints: [ 'bootstrap.ts' ],
