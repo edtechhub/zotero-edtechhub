@@ -1,13 +1,13 @@
 {
   "name": "zotero-edtechhub",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "EdTech hub companion plugin for Zotero",
   "scripts": {
     "lint": "eslint . --ext .ts --cache --cache-location .eslintcache/",
     "prebuild": "npm run lint",
     "build": "node esbuild.js && tsc --noEmit",
-    "postbuild": "zotero-plugin-zipup build zotero-edtechhub",
-    "release": "zotero-plugin-release",
+    "postbuild": "zp-zipup build zotero-edtechhub",
+    "release": "zp-release",
     "postversion": "git push --follow-tags",
     "start": "zotero-start",
     "beta": "zotero-start --beta"
@@ -17,7 +17,7 @@
     "url": "https://github.com/edtechhub/zotero-edtechhub.git"
   },
   "author": {
-    "name": "Björn Haßler and Emiliano Heyns",
+    "name": "Björn Haßler and Emiliano Heyns",
     "email": "bjoern@edtechhub.org"
   },
   "bugs": {
@@ -25,29 +25,30 @@
   },
   "homepage": "https://github.com/edtechhub/zotero-edtechhub",
   "dependencies": {
-    "request": "^2.88.2",
-    "request-promise": "^4.2.6",
-    "rimraf": "^5.0.5",
+    "@fluent/syntax": "^0.19.0",
+    "esbuild": "^0.27.2",
+    "rimraf": "^6.1.2",
     "sanitize-filename": "^1.6.3",
-    "ts-loader": "^9.5.1",
+    "ts-loader": "^9.5.4",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3",
-    "zotero-plugin": "^2.0.14"
+    "typescript": "^5.9.3",
+    "zotero-plugin": "^8.0.8"
   },
   "xpi": {
     "name": "EdTechHub for Zotero",
+    "id": "edtechhub@edtechhub.org",
     "updateLink": "https://github.com/edtechhub/zotero-edtechhub/releases/download/v{version}/zotero-edtechhub-{version}.xpi",
     "releaseURL": "https://github.com/edtechhub/zotero-edtechhub/releases/download/release/",
-    "iconURL": "chrome://zotero-edtechhub/skin/edtechhub.png",
-    "bootstrapped": true
+    "iconURL": "content/skin/edtechhub.png",
+    "bootstrapped": true,
+    "minVersion": "7.0",
+    "maxVersion": "8.*"
   },
   "devDependencies": {
-    "@fluent/syntax": "^0.19.0",
-    "@typescript-eslint/eslint-plugin": "^7.0.2",
-    "@typescript-eslint/parser": "^7.0.2",
-    "esbuild": "^0.20.1",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
     "eslint": "^8.57.0",
-    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsdoc": "^48.2.0",
     "eslint-plugin-prefer-arrow": "^1.2.3"
   }
