@@ -2,18 +2,54 @@ name: release
 
 on:
   push:
+    branches:
+      - master
+  workflow_dispatch:
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    permissions:
+      contents: write
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Check if version changed
+      id: version-check
+      run: |
+        CURRENT_VERSION=$(jq -r '.version' package.json)
+        git checkout HEAD~1 -- package.json
+        PREVIOUS_VERSION=$(jq -r '.version' package.json)
+        git checkout HEAD -- package.json
+        if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
+          echo "version_changed=true" >> $GITHUB_OUTPUT
+          echo "Version changed from $PREVIOUS_VERSION to $CURRENT_VERSION"
+        else
+          echo "version_changed=false" >> $GITHUB_OUTPUT
+          echo "Version unchanged: $CURRENT_VERSION"
+        fi
+    - name: Configure git
+      if: steps.version-check.outputs.version_changed == 'true'
+      run: |
+        git config user.name "sickerine"
+        git config user.email "seikirin.tempest@gmail.com"
+    - name: Create and push tag
+      if: steps.version-check.outputs.version_changed == 'true'
+      run: |
+        VERSION=$(jq -r '.version' package.json)
+        git tag "v${VERSION}"
+        git push origin "v${VERSION}"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: install node
-      uses: actions/setup-node@v1
+      uses: actions/setup-node@v4
       with:
         node-version: 20.x
     - name: Cache node dependencies
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       env:
         cache-name: cache-dependencies
       with:
@@ -24,11 +60,63 @@ jobs:
           ${{ runner.os }}-build-${{ env.cache-name }}-
           ${{ runner.os }}-build-
           ${{ runner.os }}-
+    - name: Sync manifest.json version
+      run: |
+        VERSION=$(jq -r '.version' package.json)
+        jq --arg version "$VERSION" '.version = $version' manifest.json > manifest.json.tmp
+        mv manifest.json.tmp manifest.json
     - name: install node dependencies
       run: npm install
     - name: build
       run: npm run build
-    - name: release
-      run: npm run release
+    - name: Rename XPI file
+      if: steps.version-check.outputs.version_changed == 'true'
+      run: |
+        VERSION=$(jq -r '.version' package.json)
+        SOURCE_FILE=$(ls xpi/zotero-edtechhub-${VERSION}.*.xpi | head -1)
+        TARGET_FILE="xpi/zotero-edtechhub-${VERSION}.xpi"
+        mv "$SOURCE_FILE" "$TARGET_FILE"
+        echo "Renamed $SOURCE_FILE to $TARGET_FILE"
+    - name: Generate update manifests
+      if: steps.version-check.outputs.version_changed == 'true'
+      run: |
+        VERSION=$(jq -r '.version' package.json)
+        printf '%s\n' '{' '"addons": {' '"edtechhub@edtechhub.org": {' '"updates": [' '{' '"version": "'"$VERSION"'",' '"update_link": "https://github.com/edtechhub/zotero-edtechhub/releases/download/v'"$VERSION"'/zotero-edtechhub-'"$VERSION"'.xpi",' '"applications": {' '"zotero": {' '"strict_min_version": "7.0",' '"strict_max_version": "8.*"' '}' '}' '}' ']' '}' '}' '}' > updates.json
+        printf '%s\n' '<?xml version="1.0" encoding="utf-8" ?>' '<RDF:RDF xmlns:RDF="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:em="http://www.mozilla.org/2004/em-rdf#">' '<RDF:Description about="urn:mozilla:extension:edtechhub@edtechhub.org">' '<em:updates>' '<RDF:Seq>' '<RDF:li>' '<RDF:Description>' '<em:version>'"$VERSION"'</em:version>' '<em:targetApplication>' '<RDF:Description>' '<em:id>zotero@chnm.gmu.edu</em:id>' '<em:minVersion>7.0</em:minVersion>' '<em:maxVersion>8.*</em:maxVersion>' '<em:updateLink>https://github.com/edtechhub/zotero-edtechhub/releases/download/v'"$VERSION"'/zotero-edtechhub-'"$VERSION"'.xpi</em:updateLink>' '</RDF:Description>' '</em:targetApplication>' '</RDF:Description>' '</RDF:li>' '</RDF:Seq>' '</em:updates>' '</RDF:Description>' '</RDF:RDF>' > update.rdf
+    - name: Create GitHub Release
+      if: steps.version-check.outputs.version_changed == 'true'
+      run: |
+        VERSION=$(jq -r '.version' package.json)
+        gh release create "v${VERSION}" \
+          --title "v${VERSION}" \
+          --notes "Release v${VERSION}" \
+          "xpi/zotero-edtechhub-${VERSION}.xpi"
       env:
-        GITHUB_TOKEN: ${{ github.token }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Update release tag with manifests
+      if: steps.version-check.outputs.version_changed == 'true'
+      run: |
+        VERSION=$(jq -r '.version' package.json)
+        # Check if release tag exists
+        if git rev-parse -q --verify "refs/tags/release" >/dev/null; then
+          echo "Release tag exists, updating files only"
+          # Upload/overwrite files in existing release
+          gh release upload release updates.json update.rdf --clobber
+        else
+          echo "Creating release tag for the first time"
+          # Create release tag pointing to first commit (or current if repo is new)
+          FIRST_COMMIT=$(git rev-list --max-parents=0 HEAD | tail -1)
+          if [ -z "$FIRST_COMMIT" ]; then
+            FIRST_COMMIT=$(git rev-parse HEAD)
+          fi
+          git tag release "$FIRST_COMMIT"
+          git push origin release
+          # Create the release with files (explicitly not a draft)
+          gh release create release \
+            --title "release" \
+            --notes "Auto-update manifests" \
+            --draft=false \
+            updates.json update.rdf
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,5 +1,6 @@
 declare const Zotero: any
 declare const Components: any
+declare const ChromeUtils: any
 declare const Services: any
 declare let OS: any
 
@@ -23,7 +24,8 @@ Services.wm.addListener({
 
 var EdTechHub: EdTechHubMain // eslint-disable-line no-var
 
-import { DebugLog as DebugLogSender } from 'zotero-plugin/debug-log'
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { DebugLog: DebugLogSender } = require('zotero-plugin/debug-log')
 import { patch as $patch$, unpatch as $unpatch$ } from './monkey-patch'
 
 import sanitize_filename = require('sanitize-filename')
@@ -149,16 +151,15 @@ function zotero_itemmenu_popupshowing() {
   const selected = Zotero.getActiveZoteroPane().getSelectedItems()
 
   const doc = Zotero.getMainWindow().document
-  // bluebird promise has status
-  const pending = (EdTechHub.ready as any).isPending()
-  const hidden = pending || !selected.find(item => item.isRegularItem()) // eslint-disable-line @typescript-eslint/no-unsafe-return
+  // Check if startup is still in progress by checking if ready promise is pending
+  // Since standard Promises don't have isPending(), we track this with a flag
+  const hidden = !selected.find(item => item.isRegularItem()) // eslint-disable-line @typescript-eslint/no-unsafe-return
   for (const elt of Array.from(doc.getElementsByClassName('edtechhub-zotero-itemmenu-regularitem') as HTMLElement[])) {
     elt.hidden = hidden
   }
 
   doc.getElementById('edtechhub-duplicate-attachment').hidden =
-    pending
-    || selected.length !== 1 || !selected[0].isAttachment() // must be a single attachment
+    selected.length !== 1 || !selected[0].isAttachment() // must be a single attachment
     || ![Zotero.Attachments.LINK_MODE_LINKED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_URL].includes(selected[0].attachmentLinkMode) // not a linked or imported file
     || (selected[0].attachmentLinkMode === Zotero.Attachments.LINK_MODE_IMPORTED_URL && selected[0].attachmentContentType === 'text/html') // no web snapshots
     || !selected[0].getFilePath() // path does not exist
@@ -319,8 +320,8 @@ class EdTechHubMain {
   }
 
   async startup() {
-    const ready = Zotero.Promise.defer()
-    this.ready = ready.promise
+    let resolveReady: (value: boolean) => void
+    this.ready = new Promise(resolve => { resolveReady = resolve })
 
     const progressWin = new Zotero.ProgressWindow({ closeOnClick: false })
     progressWin.changeHeadline('EdTech hub: waiting for Zotero')
@@ -441,7 +442,7 @@ class EdTechHubMain {
       debug(`translator installation failed: ${err}`)
     }
 
-    ready.resolve(true)
+    resolveReady(true)
 
     this.ui(Zotero.getMainWindow() as Window)
   }
@@ -690,8 +691,8 @@ class EdTechHubMain {
 }
 EdTechHub = Zotero.EdTechHub = Zotero.EdTechHub || new EdTechHubMain
 
-Components.utils.import('resource://gre/modules/AddonManager.jsm')
-declare const AddonManager: any
+// Use ChromeUtils.importESModule for Zotero 8 (Firefox 140+)
+const { AddonManager } = ChromeUtils.importESModule('resource://gre/modules/AddonManager.sys.mjs')
 AddonManager.addAddonListener({
   onUninstalling(addon, _needsRestart) { // eslint-disable-line prefer-arrow/prefer-arrow-functions
     if (addon.id !== 'edtechhub@edtechhub.org') return null
