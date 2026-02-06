@@ -54,8 +54,34 @@ function libraryKey(item: any): string {
 }
 
 function toClipboard(text) {
+  debug(`toClipboard called with text length: ${text?.length || 0}`)
+  debug(`toClipboard text preview: ${text?.substring(0, 100) || 'empty'}`)
+
+  const window = Zotero.getMainWindow()
+
+  // Try modern clipboard API first (better for macOS)
+  try {
+    if (window.navigator.clipboard && window.navigator.clipboard.writeText) {
+      debug('toClipboard: using navigator.clipboard.writeText')
+      window.navigator.clipboard.writeText(text).then(() => {
+        debug('toClipboard: navigator.clipboard.writeText succeeded')
+      }).catch(err => {
+        debug(`toClipboard: navigator.clipboard.writeText failed: ${err}`)
+      })
+      return
+    }
+  }
+  catch (err) {
+    debug(`toClipboard: navigator.clipboard not available: ${err}`)
+  }
+
+  // Fallback to XPCOM clipboard API
+  debug('toClipboard: using XPCOM clipboard API')
   const clipboard = Components.classes['@mozilla.org/widget/clipboard;1'].getService(Components.interfaces.nsIClipboard)
   const transferable = Components.classes['@mozilla.org/widget/transferable;1'].createInstance(Components.interfaces.nsITransferable)
+
+  // Initialize transferable with window context (required for Zotero 7+)
+  transferable.init(window)
 
   const mimetype = 'text/unicode'
 
@@ -65,12 +91,16 @@ function toClipboard(text) {
   transferable.setTransferData(mimetype, str, text.length * 2)
 
   clipboard.setData(transferable, null, Components.interfaces.nsIClipboard.kGlobalClipboard)
+  debug('toClipboard: XPCOM clipboard.setData completed')
 }
 
 function toClipboardHTML(content) {
 
   const clipboard = Components.classes['@mozilla.org/widget/clipboard;1'].getService(Components.interfaces.nsIClipboard)
   const transferable = Components.classes['@mozilla.org/widget/transferable;1'].createInstance(Components.interfaces.nsITransferable)
+
+  // Initialize transferable with null context (required for Zotero 7+)
+  transferable.init(null)
 
   const str = Components.classes['@mozilla.org/supports-string;1'].createInstance(Components.interfaces.nsISupportsString)
   str.data = content
@@ -163,6 +193,19 @@ function zotero_itemmenu_popupshowing() {
     || ![Zotero.Attachments.LINK_MODE_LINKED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_URL].includes(selected[0].attachmentLinkMode) // not a linked or imported file
     || (selected[0].attachmentLinkMode === Zotero.Attachments.LINK_MODE_IMPORTED_URL && selected[0].attachmentContentType === 'text/html') // no web snapshots
     || !selected[0].getFilePath() // path does not exist
+}
+
+function zotero_collectionmenu_popupshowing() {
+  if (!Zotero.EdTechHub) return
+
+  const zoteroPane = Zotero.getActiveZoteroPane()
+  const collection = zoteroPane.getSelectedCollection()
+  const doc = Zotero.getMainWindow().document
+
+  const hide = !collection
+  for (const elt of Array.from(doc.getElementsByClassName('edtechhub-zotero-collectionmenu') as HTMLElement[])) {
+    elt.hidden = hide
+  }
 }
 
 class AlsoKnownAs {
@@ -311,6 +354,55 @@ class EdTechHubMain {
       oncommand: () => void Zotero.EdTechHub.run('duplicateAttachment'),
     }))
 
+    // Add separator and submenu for copy links & IDs
+    itemmenu.appendChild(create('menuseparator', {
+      class: 'edtechhub-zotero-itemmenu-regularitem',
+    }))
+    const copyLinksMenu = create('menu', {
+      class: 'edtechhub-zotero-itemmenu-regularitem',
+      label: 'KCite: Copy Links & IDs',
+    })
+    const copyLinksPopup = create('menupopup')
+    copyLinksPopup.appendChild(create('menuitem', {
+      label: l10n['edtechhub_copy-select-link'],
+      oncommand: () => void Zotero.EdTechHub.run('copySelectItemLink'),
+    }))
+    copyLinksPopup.appendChild(create('menuitem', {
+      label: l10n['edtechhub_copy-item-id'],
+      oncommand: () => void Zotero.EdTechHub.run('copyZoteroItemID'),
+    }))
+    copyLinksPopup.appendChild(create('menuitem', {
+      label: l10n['edtechhub_copy-item-uri'],
+      oncommand: () => void Zotero.EdTechHub.run('copyZoteroItemURI'),
+    }))
+    copyLinksMenu.appendChild(copyLinksPopup)
+    itemmenu.appendChild(copyLinksMenu)
+
+    // Collection menu setup
+    const collectionMenu = doc.getElementById('zotero-collectionmenu')
+    if (collectionMenu) {
+      collectionMenu.addEventListener('popupshowing', zotero_collectionmenu_popupshowing, false)
+
+      // Add separator and menu items for collection
+      collectionMenu.appendChild(create('menuseparator', {
+        class: 'edtechhub-zotero-collectionmenu edtechhub',
+      }))
+      collectionMenu.appendChild(create('menuitem', {
+        class: 'edtechhub-zotero-collectionmenu edtechhub',
+        label: l10n['edtechhub_copy-collection-select-link'],
+        oncommand: () => void Zotero.EdTechHub.run('copySelectCollectionLink'),
+      }))
+      collectionMenu.appendChild(create('menuitem', {
+        class: 'edtechhub-zotero-collectionmenu edtechhub',
+        label: l10n['edtechhub_copy-collection-uri'],
+        oncommand: () => void Zotero.EdTechHub.run('copyCollectionZoteroURI'),
+      }))
+
+      win.addEventListener('unload', _event => {
+        collectionMenu.removeEventListener('popupshowing', zotero_collectionmenu_popupshowing, false)
+      }, false)
+    }
+
     win.addEventListener('unload', _event => {
       doc.getElementById('zotero-itemmenu').removeEventListener('popupshowing', zotero_itemmenu_popupshowing, false)
       for (const elt of Array.from(doc.getElementsByClassName('edtechhub') as HTMLCollectionOf<HTMLElement>)) {
@@ -453,6 +545,12 @@ class EdTechHubMain {
 
     $unpatch$()
     doc.getElementById('zotero-itemmenu').removeEventListener('popupshowing', zotero_itemmenu_popupshowing, false)
+
+    const collectionMenu = doc.getElementById('zotero-collectionmenu')
+    if (collectionMenu) {
+      collectionMenu.removeEventListener('popupshowing', zotero_collectionmenu_popupshowing, false)
+    }
+
     for (const elt of Array.from(doc.getElementsByClassName('edtechhub') as HTMLElement[])) {
       elt.remove()
     }
@@ -630,6 +728,120 @@ class EdTechHubMain {
       toClipboard(text)
       flash(`${nitems} item(s) copied to clipboard as text`)
     }
+  }
+
+  public copySelectItemLink() {
+    const zoteroPane = Zotero.getActiveZoteroPane()
+    const items: any[] = zoteroPane.getSelectedItems().filter(item => item.isRegularItem() as boolean)
+    debug(`copySelectItemLink: found ${items.length} items`)
+    if (!items.length) return
+
+    const links: string[] = []
+    for (const item of items) {
+      const libraryID = item.libraryID
+      const library = Zotero.Libraries.get(libraryID)
+      const libraryType = library.libraryType
+
+      if (libraryType === 'user') {
+        links.push(`zotero://select/library/items/${String(item.key)}`)
+      }
+      else if (libraryType === 'group') {
+        const groupID = Zotero.Groups.getGroupIDFromLibraryID(libraryID)
+        links.push(`zotero://select/groups/${groupID}/items/${String(item.key)}`)
+      }
+    }
+
+    if (links.length) {
+      const text = links.join('\r\n')
+      debug(`copySelectItemLink: copying to clipboard: ${text}`)
+      toClipboard(text)
+      flash(`${links.length} select link(s) copied to clipboard`)
+    }
+    else {
+      debug('copySelectItemLink: no links generated')
+    }
+  }
+
+  public copyZoteroItemID() {
+    const zoteroPane = Zotero.getActiveZoteroPane()
+    const items: any[] = zoteroPane.getSelectedItems().filter(item => item.isRegularItem() as boolean)
+    debug(`copyZoteroItemID: found ${items.length} items`)
+    if (!items.length) return
+
+    const keys = items.map(item => String(item.key))
+    const text = keys.join('\r\n')
+    debug(`copyZoteroItemID: copying to clipboard: ${text}`)
+    toClipboard(text)
+    flash(`${keys.length} item ID(s) copied to clipboard`)
+  }
+
+  public copyZoteroItemURI() {
+    const zoteroPane = Zotero.getActiveZoteroPane()
+    const items: any[] = zoteroPane.getSelectedItems().filter(item => item.isRegularItem() as boolean)
+    debug(`copyZoteroItemURI: found ${items.length} items`)
+    if (!items.length) return
+
+    const uris: string[] = []
+    for (const item of items) {
+      let uri = String(Zotero.URI.getItemURI(item))
+      // Convert http to https if needed
+      if (uri.startsWith('http://')) {
+        uri = uri.replace('http://', 'https://')
+      }
+      uris.push(uri)
+    }
+
+    if (uris.length) {
+      const text = uris.join('\r\n')
+      debug(`copyZoteroItemURI: copying to clipboard: ${text}`)
+      toClipboard(text)
+      flash(`${uris.length} item URI(s) copied to clipboard`)
+    }
+    else {
+      debug('copyZoteroItemURI: no URIs generated')
+    }
+  }
+
+  public copySelectCollectionLink() {
+    const zoteroPane = Zotero.getActiveZoteroPane()
+    const collection = zoteroPane.getSelectedCollection()
+    debug(`copySelectCollectionLink: collection = ${collection ? collection.key : 'null'}`)
+    if (!collection) return
+
+    const libraryID = collection.libraryID
+    const library = Zotero.Libraries.get(libraryID)
+    const libraryType = library.libraryType
+    debug(`copySelectCollectionLink: libraryType = ${libraryType}`)
+
+    let link = ''
+    if (libraryType === 'user') {
+      link = `zotero://select/library/collections/${String(collection.key)}`
+    }
+    else if (libraryType === 'group') {
+      const groupID = Zotero.Groups.getGroupIDFromLibraryID(libraryID)
+      link = `zotero://select/groups/${groupID}/collections/${String(collection.key)}`
+    }
+
+    if (link) {
+      debug(`copySelectCollectionLink: copying to clipboard: ${link}`)
+      toClipboard(link)
+      flash('Collection select link copied to clipboard')
+    }
+    else {
+      debug('copySelectCollectionLink: no link generated')
+    }
+  }
+
+  public copyCollectionZoteroURI() {
+    const zoteroPane = Zotero.getActiveZoteroPane()
+    const collection = zoteroPane.getSelectedCollection()
+    debug(`copyCollectionZoteroURI: collection = ${collection ? collection.key : 'null'}`)
+    if (!collection) return
+
+    const uri = Zotero.URI.getCollectionURI(collection)
+    debug(`copyCollectionZoteroURI: copying to clipboard: ${uri}`)
+    toClipboard(uri)
+    flash('Collection URI copied to clipboard')
   }
 
   private async installTranslator(name) {

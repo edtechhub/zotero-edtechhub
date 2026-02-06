@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "EdTechHub for Zotero",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "description": "EdTech hub companion plugin for Zotero",
   "icons": {
     "48": "content/skin/edtechhub.png",

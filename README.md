@@ -19,6 +19,14 @@ To make full use of the KCite function in Google Docs/Slides, also install this 
 - KCite: Share. Sharing a citation (author, year, title) together with Zotero locations. We use this to share citations with each other e.g. on Slack or via Email.
 - KCite Save item ID. Saves the item ID to a field in 'extra'
 - KCite Save item details to note. Saves the current items metadata into a note. Helpful if a change in item type might lead to loss of information.
+- **KCite: Copy Links & IDs** (submenu):
+  - **Copy Select Link**: Generate `zotero://select/` URIs that open the item in Zotero when clicked. Works for both user and group libraries.
+  - **Copy Item ID**: Copy the item's unique key (alphanumeric identifier) to clipboard.
+  - **Copy Item URI**: Generate shareable www.zotero.org URLs for items in your library.
+
+## Right-click menu (on collection)
+- **KCite: Copy Collection Link**: Generate `zotero://select/` URIs that open the collection in Zotero when clicked. Works for both user and group libraries.
+- **KCite: Copy Collection URI**: Generate shareable www.zotero.org URLs for collections in your library.
 
 ## Right-click menu (on attachment)
 - KCite Duplicate attachment. Duplicates an attachment, typically a PDF. This is useful if you'd like to keep a clear copy of the PDF prior to annotation.
@@ -41,6 +49,20 @@ There's some function (such as export, or the additional menu options) that don'
 ### Storing items IDs in extras
 
 The reason we care about item IDs (and tracking them through merges, etc) is that that we can embed item ids into google docs. If item ids change, but the 'item id history' is preserved, then they can be updated. Embedded item ids turn into links to our public evidence library, available here https://docs.edtechhub.org (which uses https://github.com/edtechhub/eth-evidence-library-kerko).
+
+### Using Select Links and URIs
+
+**Select Links** (`zotero://select/` URIs) are internal navigation links that open Zotero and navigate directly to the referenced item or collection. These links work locally on your computer and are useful for:
+- Creating internal documentation that links to specific items/collections
+- Sharing references with collaborators who have access to the same Zotero library
+- Building workflows that navigate between items
+
+**Item URIs** (www.zotero.org URLs) are shareable web links that can be viewed by anyone with access to your library (public or group libraries). These are useful for:
+- Sharing references externally
+- Creating public-facing documentation
+- Linking to items in published work
+
+Both link types support user libraries and group libraries, automatically detecting which type to generate based on the selected item or collection.
 
 
 # Reporting errors
