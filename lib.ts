@@ -29,6 +29,50 @@ const { DebugLog: DebugLogSender } = require('zotero-plugin/debug-log')
 import { patch as $patch$, unpatch as $unpatch$ } from './monkey-patch'
 
 import sanitize_filename = require('sanitize-filename')
+const { FilePicker } = ChromeUtils.importESModule('chrome://zotero/content/modules/filePicker.mjs')
+
+type DownloadContentMode = 'attachments' | 'notes' | 'both'
+type DownloadLayoutMode = 'per-item' | 'flat' | 'by-type'
+
+type DownloadSelectedOptions = {
+  contentMode: DownloadContentMode
+  layoutMode: DownloadLayoutMode
+  destinationDir: string
+}
+
+type DownloadTarget = {
+  item: any
+  owner: any
+}
+
+type DownloadTargets = {
+  attachments: DownloadTarget[]
+  notes: DownloadTarget[]
+}
+
+type DownloadSkip = {
+  itemID: number
+  itemKey: string
+  type: 'attachment' | 'note'
+  reason: string
+}
+
+type DownloadSummary = {
+  attachmentTargets: number
+  noteTargets: number
+  exportedAttachments: number
+  exportedNotes: number
+  downloadedAttachments: number
+  skipped: DownloadSkip[]
+}
+
+type DownloadProgressState = {
+  window: any
+  overallLine: any
+  currentLine: any
+  totalTargets: number
+  completedTargets: number
+}
 
 function flash(title, body = null, timeout = 8) { // eslint-disable-line @typescript-eslint/no-magic-numbers
   try {
@@ -38,11 +82,25 @@ function flash(title, body = null, timeout = 8) { // eslint-disable-line @typesc
     if (Array.isArray(body)) body = body.join('\n')
     pw.addDescription(body)
     pw.show()
-    pw.startCloseTimer(timeout * 1000) // eslint-disable-line @typescript-eslint/no-magic-numbers
+    const closeDelay = timeout * 1000 // eslint-disable-line @typescript-eslint/no-magic-numbers
+    pw.startCloseTimer(closeDelay)
+    scheduleProgressWindowHardClose(pw, closeDelay)
   }
   catch (err) {
     debug(`@flash failed: ${JSON.stringify({ title, body })}`, err)
   }
+}
+
+function scheduleProgressWindowHardClose(progressWindow: any, delayMS: number): void {
+  void (async () => {
+    await Zotero.Promise.delay(delayMS + 1500) // eslint-disable-line @typescript-eslint/no-magic-numbers
+    try {
+      progressWindow.close()
+    }
+    catch (_err) {
+      // ignore close races on already-closed windows
+    }
+  })()
 }
 
 const prefixLegacy = 'EdTechHub.ItemAlsoKnownAs:'
@@ -112,12 +170,12 @@ function toClipboardHTML(content) {
 
 }
 
-function translate(items: any[], translator: string): Promise<string> { // returns a promise
+function translate(items: any[], translator: string, displayOptions: Record<string, boolean> = { exportNotes: false }): Promise<string> { // returns a promise
   const deferred = Zotero.Promise.defer()
   const translation = new Zotero.Translate.Export()
   translation.setItems(items)
   translation.setTranslator(translator)
-  translation.setDisplayOptions({ exportNotes: false })
+  translation.setDisplayOptions(displayOptions)
   translation.setHandler('done', (obj, success) => {
     if (success) {
       deferred.resolve(obj ? obj.string : '')
@@ -193,6 +251,9 @@ function zotero_itemmenu_popupshowing() {
     || ![Zotero.Attachments.LINK_MODE_LINKED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_FILE, Zotero.Attachments.LINK_MODE_IMPORTED_URL].includes(selected[0].attachmentLinkMode) // not a linked or imported file
     || (selected[0].attachmentLinkMode === Zotero.Attachments.LINK_MODE_IMPORTED_URL && selected[0].attachmentContentType === 'text/html') // no web snapshots
     || !selected[0].getFilePath() // path does not exist
+
+  const hasDownloadableSelection = selected.some(item => Boolean(item.isRegularItem() || item.isAttachment() || item.isNote()))
+  doc.getElementById('edtechhub-download-selected').hidden = !hasDownloadableSelection
 }
 
 function zotero_collectionmenu_popupshowing() {
@@ -272,6 +333,14 @@ class EdTechHubMain {
 
   public translators: { file: string, translatorID: string }[] = []
   public uninstalled = false
+  private downloadLastDirectory = ''
+  private downloadDefaults: {
+    contentMode: DownloadContentMode
+    layoutMode: DownloadLayoutMode
+  } = {
+      contentMode: 'both',
+      layoutMode: 'per-item',
+    }
 
   ui(win : Window) {
     debug('building UI')
@@ -353,6 +422,37 @@ class EdTechHubMain {
       label: l10n['edtechhub_duplicate-attachment'],
       oncommand: () => void Zotero.EdTechHub.run('duplicateAttachment'),
     }))
+    const downloadMenu = create('menu', {
+      id: 'edtechhub-download-selected',
+      label: l10n['edtechhub_download-selected'],
+    })
+    const downloadPopup = create('menupopup')
+    const addDownloadContentMenu = (contentMode: DownloadContentMode, label: string) => {
+      const contentMenu = create('menu', { label })
+      const layoutPopup = create('menupopup')
+
+      layoutPopup.appendChild(create('menuitem', {
+        label: l10n['edtechhub_download-layout-per-item'],
+        oncommand: () => void Zotero.EdTechHub.run('downloadSelectedWithOptions', contentMode, 'per-item'),
+      }))
+      layoutPopup.appendChild(create('menuitem', {
+        label: l10n['edtechhub_download-layout-flat'],
+        oncommand: () => void Zotero.EdTechHub.run('downloadSelectedWithOptions', contentMode, 'flat'),
+      }))
+      layoutPopup.appendChild(create('menuitem', {
+        label: l10n['edtechhub_download-layout-by-type'],
+        oncommand: () => void Zotero.EdTechHub.run('downloadSelectedWithOptions', contentMode, 'by-type'),
+      }))
+
+      contentMenu.appendChild(layoutPopup)
+      downloadPopup.appendChild(contentMenu)
+    }
+
+    addDownloadContentMenu('both', String(l10n['edtechhub_download-content-both']))
+    addDownloadContentMenu('attachments', String(l10n['edtechhub_download-content-attachments']))
+    addDownloadContentMenu('notes', String(l10n['edtechhub_download-content-notes']))
+    downloadMenu.appendChild(downloadPopup)
+    itemmenu.appendChild(downloadMenu)
 
     // Add separator and submenu for copy links & IDs
     itemmenu.appendChild(create('menuseparator', {
@@ -712,6 +812,492 @@ class EdTechHubMain {
       default:
         return
     }
+  }
+
+  public async downloadSelected() {
+    await this.downloadSelectedWithOptions(this.downloadDefaults.contentMode, this.downloadDefaults.layoutMode)
+  }
+
+  public async downloadSelectedWithOptions(contentMode: DownloadContentMode, layoutMode: DownloadLayoutMode) {
+    await this.ready
+
+    const selected: any[] = Zotero.getActiveZoteroPane().getSelectedItems()
+    if (!selected.length) {
+      flash(l10n['edtechhub_download-no-selection'])
+      return
+    }
+
+    const destinationDir = await this.pickDownloadDirectory()
+    if (!destinationDir) {
+      debug('downloadSelected: cancelled at destination folder')
+      return
+    }
+
+    this.downloadLastDirectory = destinationDir
+    this.downloadDefaults = { contentMode, layoutMode }
+    const options: DownloadSelectedOptions = { contentMode, layoutMode, destinationDir }
+
+    const targets = await this.collectExportTargets(selected)
+    const requestedAttachmentTargets = options.contentMode === 'notes' ? 0 : targets.attachments.length
+    const requestedNoteTargets = options.contentMode === 'attachments' ? 0 : targets.notes.length
+    if (!requestedAttachmentTargets && !requestedNoteTargets) {
+      flash(l10n['edtechhub_download-no-targets'])
+      return
+    }
+
+    const summary: DownloadSummary = {
+      attachmentTargets: requestedAttachmentTargets,
+      noteTargets: requestedNoteTargets,
+      exportedAttachments: 0,
+      exportedNotes: 0,
+      downloadedAttachments: 0,
+      skipped: [],
+    }
+
+    const progress = this.openDownloadProgress(summary)
+    try {
+      if (options.contentMode === 'attachments' || options.contentMode === 'both') {
+        await this.exportAttachments(options, targets.attachments, summary, progress)
+      }
+      if (options.contentMode === 'notes' || options.contentMode === 'both') {
+        await this.exportNotes(options, targets.notes, summary, progress)
+      }
+
+      this.finishDownloadProgress(progress, summary)
+    }
+    catch (err) {
+      this.failDownloadProgress(progress, err)
+      throw err
+    }
+  }
+
+  private async pickDownloadDirectory(): Promise<string | null> {
+    const fp = new FilePicker()
+    fp.init(Zotero.getMainWindow(), l10n['edtechhub_download-select-folder'], fp.modeGetFolder)
+    try {
+      fp.displayDirectory = this.downloadLastDirectory || Zotero.DataDirectory.dir
+    }
+    catch (_err) {
+      // ignore displayDirectory issues; picker still works without it
+    }
+    const rv = await fp.show()
+    const rawFile: unknown = fp.file
+    const rawURL: unknown = fp.fileURL
+    let path: string | null = null
+    if (typeof rawFile === 'string' && rawFile) {
+      path = rawFile
+    }
+    else if (rawFile && typeof (rawFile as { path?: unknown }).path === 'string') {
+      path = String((rawFile as { path: string }).path)
+    }
+    else if (typeof rawURL === 'string' && rawURL.startsWith('file://')) {
+      try {
+        path = String(Zotero.File.pathFromFileURI(rawURL))
+      }
+      catch (_err) {
+        path = null
+      }
+    }
+
+    const hasPath = typeof path === 'string' && !!path
+    debug(`downloadSelected folder picker: rv=${String(rv)} hasPath=${String(hasPath)} type(file)=${typeof rawFile} type(fileURL)=${typeof rawURL}`)
+    if (path) return path
+    if (rv !== fp.returnOK && rv !== fp.returnReplace) return null
+    return null
+  }
+
+  private async collectExportTargets(selectedItems: any[]): Promise<DownloadTargets> {
+    const attachmentMap = new Map<number, DownloadTarget>()
+    const noteMap = new Map<number, DownloadTarget>()
+
+    for (const item of selectedItems) {
+      if (item.isRegularItem()) {
+        const attachments = await Zotero.Items.getAsync(item.getAttachments(false))
+        for (const attachment of attachments) {
+          if (!attachment?.isAttachment?.()) continue
+          const attachmentID = Number(attachment.id)
+          if (!attachmentMap.has(attachmentID)) {
+            attachmentMap.set(attachmentID, { item: attachment, owner: item })
+          }
+        }
+
+        const notes = await Zotero.Items.getAsync(item.getNotes(false))
+        for (const note of notes) {
+          if (!note?.isNote?.()) continue
+          const noteID = Number(note.id)
+          if (!noteMap.has(noteID)) {
+            noteMap.set(noteID, { item: note, owner: item })
+          }
+        }
+        continue
+      }
+
+      if (item.isAttachment()) {
+        const owner = await this.getTargetOwner(item)
+        const itemID = Number(item.id)
+        if (!attachmentMap.has(itemID)) {
+          attachmentMap.set(itemID, { item, owner })
+        }
+        continue
+      }
+
+      if (item.isNote()) {
+        const owner = await this.getTargetOwner(item)
+        const itemID = Number(item.id)
+        if (!noteMap.has(itemID)) {
+          noteMap.set(itemID, { item, owner })
+        }
+      }
+    }
+
+    return {
+      attachments: [...attachmentMap.values()],
+      notes: [...noteMap.values()],
+    }
+  }
+
+  private async getTargetOwner(item: any): Promise<unknown> {
+    if (typeof item.parentItemID !== 'number') return item as unknown
+    const parents = await Zotero.Items.getAsync([item.parentItemID])
+    const parent = parents[0]
+    if (parent?.isRegularItem?.()) return parent as unknown
+    return item as unknown
+  }
+
+  private async exportAttachments(
+    options: DownloadSelectedOptions,
+    targets: DownloadTarget[],
+    summary: DownloadSummary,
+    progress: DownloadProgressState
+  ): Promise<void> {
+    for (let i = 0; i < targets.length; i++) {
+      const target = targets[i]
+      const attachment = target.item
+      const label = this.getDownloadTargetLabel(attachment, `attachment-${String(attachment.key || attachment.id || i + 1)}`)
+
+      this.setDownloadProgressCurrent(
+        progress,
+        'attachment',
+        `Attachment ${i + 1}/${targets.length}: ${label}`,
+        5
+      )
+
+      if (attachment.attachmentLinkMode === Zotero.Attachments.LINK_MODE_LINKED_URL) {
+        this.addSkip(summary, attachment, 'attachment', 'Linked URL attachment has no local file')
+        this.markDownloadProgressTargetDone(
+          progress,
+          'attachment',
+          `Skipped linked URL attachment ${i + 1}/${targets.length}`
+        )
+        continue
+      }
+
+      let path = await attachment.getFilePathAsync()
+      if (!path && attachment.isStoredFileAttachment()) {
+        try {
+          await this.downloadAttachmentWithProgress(
+            attachment,
+            progress,
+            `attachment ${i + 1}/${targets.length}: ${label}`
+          )
+          path = await attachment.getFilePathAsync()
+          if (path) summary.downloadedAttachments += 1
+        }
+        catch (err) {
+          debug('downloadSelected: attachment download failed', err)
+        }
+      }
+
+      if (!path) {
+        this.addSkip(summary, attachment, 'attachment', 'Attachment file not available')
+        this.markDownloadProgressTargetDone(
+          progress,
+          'attachment',
+          `Skipped unavailable attachment ${i + 1}/${targets.length}`
+        )
+        continue
+      }
+
+      try {
+        this.setDownloadProgressCurrent(
+          progress,
+          'attachment',
+          `Copying attachment ${i + 1}/${targets.length}: ${label}`,
+          70
+        )
+        const sourceName = OS.Path.basename(path)
+        const sourceBaseName = sourceName.replace(/([^.])\.[^.]+$/, '$1')
+        const ext = sourceName.substring(sourceBaseName.length)
+        const fileName = `${sanitize_filename(`${String(target.owner?.key || target.owner?.id || 'item')}-${String(attachment.key)}-${sourceBaseName}`) || `attachment-${String(attachment.key)}`}${ext}`
+
+        const destination = await this.ensureUniquePath(this.buildOutputPath(options, 'attachment', target, fileName))
+        await Zotero.File.createDirectoryIfMissingAsync(OS.Path.dirname(destination))
+        await OS.File.copy(path, destination)
+        summary.exportedAttachments += 1
+        this.markDownloadProgressTargetDone(
+          progress,
+          'attachment',
+          `Attachment ${i + 1}/${targets.length} exported`
+        )
+      }
+      catch (err) {
+        debug('downloadSelected: attachment export failed', err)
+        this.addSkip(summary, attachment, 'attachment', 'Failed to copy attachment file')
+        this.markDownloadProgressTargetDone(
+          progress,
+          'attachment',
+          `Attachment ${i + 1}/${targets.length} failed`
+        )
+      }
+    }
+  }
+
+  private async exportNotes(
+    options: DownloadSelectedOptions,
+    targets: DownloadTarget[],
+    summary: DownloadSummary,
+    progress: DownloadProgressState
+  ): Promise<void> {
+    const ext = '.md'
+
+    for (let i = 0; i < targets.length; i++) {
+      const target = targets[i]
+      const note = target.item
+      const label = this.getDownloadTargetLabel(note, `note-${String(note.key || note.id || i + 1)}`)
+
+      try {
+        this.setDownloadProgressCurrent(
+          progress,
+          'note',
+          `Exporting note ${i + 1}/${targets.length}: ${label}`,
+          45
+        )
+        const noteHTML = String(note.getNote() || '')
+        const noteTitle = String(Zotero.Utilities.Item.noteToTitle(noteHTML, { stopAtLineBreak: true }) || '')
+        const title = sanitize_filename(noteTitle || `note-${String(note.key)}`) || `note-${String(note.key)}`
+        const fileName = `${sanitize_filename(`${String(target.owner?.key || target.owner?.id || 'item')}-${String(note.key)}-${title}`) || `note-${String(note.key)}`}${ext}`
+
+        const content = await this.noteToMarkdown(note)
+
+        const destination = await this.ensureUniquePath(this.buildOutputPath(options, 'note', target, fileName))
+        await Zotero.File.createDirectoryIfMissingAsync(OS.Path.dirname(destination))
+        await Zotero.File.putContentsAsync(destination, content)
+        summary.exportedNotes += 1
+        this.markDownloadProgressTargetDone(
+          progress,
+          'note',
+          `Note ${i + 1}/${targets.length} exported`
+        )
+      }
+      catch (err) {
+        debug('downloadSelected: note export failed', err)
+        this.addSkip(summary, note, 'note', 'Failed to export note content')
+        this.markDownloadProgressTargetDone(
+          progress,
+          'note',
+          `Note ${i + 1}/${targets.length} failed`
+        )
+      }
+    }
+  }
+
+  private buildOutputPath(
+    options: DownloadSelectedOptions,
+    type: 'attachment' | 'note',
+    target: DownloadTarget,
+    fileName: string
+  ): string {
+    switch (options.layoutMode) {
+      case 'flat':
+        return String(OS.Path.join(options.destinationDir, fileName))
+
+      case 'by-type':
+        return String(OS.Path.join(options.destinationDir, type === 'attachment' ? 'attachments' : 'notes', fileName))
+
+      case 'per-item':
+      default:
+        return String(OS.Path.join(options.destinationDir, this.getOwnerFolderName(target.owner), fileName))
+    }
+  }
+
+  private addSkip(summary: DownloadSummary, item: any, type: 'attachment' | 'note', reason: string): void {
+    summary.skipped.push({
+      itemID: item.id,
+      itemKey: String(item.key),
+      type,
+      reason,
+    })
+  }
+
+  private openDownloadProgress(summary: DownloadSummary): DownloadProgressState {
+    const totalTargets = summary.attachmentTargets + summary.noteTargets
+    const progressWindow = new Zotero.ProgressWindow({ closeOnClick: false })
+    progressWindow.changeHeadline('KCite Download Selected')
+
+    const overallLine = new progressWindow.ItemProgress('attachment', `Completed 0/${totalTargets}`)
+    overallLine.setProgress(totalTargets ? 1 : 100)
+
+    const currentLine = new progressWindow.ItemProgress('attachment', 'Preparing export...')
+    currentLine.setProgress(1)
+
+    progressWindow.show()
+
+    return {
+      window: progressWindow,
+      overallLine,
+      currentLine,
+      totalTargets,
+      completedTargets: 0,
+    }
+  }
+
+  private updateDownloadProgressOverall(progress: DownloadProgressState): void {
+    const totalTargets = progress.totalTargets
+    const completedTargets = Math.min(progress.completedTargets, totalTargets)
+    const percentage = totalTargets ? Math.round((completedTargets / totalTargets) * 100) : 100
+
+    progress.overallLine.setText(`Completed ${completedTargets}/${totalTargets}`)
+    progress.overallLine.setProgress(percentage)
+  }
+
+  private setDownloadProgressCurrent(
+    progress: DownloadProgressState,
+    type: 'attachment' | 'note',
+    text: string,
+    percentage = 0
+  ): void {
+    const normalizedPercentage = percentage >= 100
+      ? 100
+      : Math.max(1, Math.round(percentage))
+    progress.currentLine.setItemTypeAndIcon(type)
+    progress.currentLine.setText(text)
+    progress.currentLine.setProgress(normalizedPercentage)
+  }
+
+  private markDownloadProgressTargetDone(
+    progress: DownloadProgressState,
+    type: 'attachment' | 'note',
+    text: string
+  ): void {
+    progress.completedTargets += 1
+    this.updateDownloadProgressOverall(progress)
+    this.setDownloadProgressCurrent(progress, type, text, 100)
+  }
+
+  private finishDownloadProgress(progress: DownloadProgressState, summary: DownloadSummary): void {
+    progress.completedTargets = progress.totalTargets
+    this.updateDownloadProgressOverall(progress)
+    this.setDownloadProgressCurrent(
+      progress,
+      'attachment',
+      `Done: ${summary.exportedAttachments}/${summary.attachmentTargets} attachments, ${summary.exportedNotes}/${summary.noteTargets} notes, ${summary.downloadedAttachments} downloaded, ${summary.skipped.length} skipped`,
+      100
+    )
+    const closeDelay = 5000 // eslint-disable-line @typescript-eslint/no-magic-numbers
+    progress.window.startCloseTimer(closeDelay)
+    scheduleProgressWindowHardClose(progress.window, closeDelay)
+  }
+
+  private failDownloadProgress(progress: DownloadProgressState, err: unknown): void {
+    const message = err instanceof Error ? err.message : String(err)
+    progress.currentLine.setText(`Failed: ${message}`)
+    progress.currentLine.setError()
+    const closeDelay = 12000 // eslint-disable-line @typescript-eslint/no-magic-numbers
+    progress.window.startCloseTimer(closeDelay)
+    scheduleProgressWindowHardClose(progress.window, closeDelay)
+  }
+
+  private getDownloadTargetLabel(item: any, fallback: string): string {
+    for (const candidate of [
+      item?.getDisplayTitle?.(),
+      item?.getField?.('title'),
+      item?.attachmentFilename,
+      item?.key,
+      item?.id,
+    ]) {
+      const text = String(candidate || '').trim()
+      if (!text) continue
+      return text.length <= 80 ? text : `${text.substring(0, 77)}...`
+    }
+    return fallback
+  }
+
+  private async downloadAttachmentWithProgress(
+    attachment: any,
+    progress: DownloadProgressState,
+    label: string
+  ): Promise<void> {
+    const downloadPromise = Zotero.Sync.Runner.downloadFile(attachment)
+    let settled = false
+    let failed: unknown = null
+    downloadPromise.then(() => {
+      settled = true
+    }).catch(err => {
+      failed = err
+      settled = true
+    })
+
+    while (!settled) {
+      let percentage: unknown = false
+      try {
+        percentage = Zotero.Sync.Storage.getItemDownloadProgress(attachment)
+      }
+      catch (_err) {
+        percentage = false
+      }
+
+      if (typeof percentage === 'number' && Number.isFinite(percentage)) {
+        const bounded = Math.max(1, Math.min(99, Math.round(percentage)))
+        this.setDownloadProgressCurrent(progress, 'attachment', `Downloading ${label} (${bounded}%)`, bounded)
+      }
+      else {
+        this.setDownloadProgressCurrent(progress, 'attachment', `Downloading ${label} (waiting for sync...)`, 5)
+      }
+
+      await Zotero.Promise.delay(200) // eslint-disable-line @typescript-eslint/no-magic-numbers
+    }
+
+    if (failed) throw failed
+  }
+
+  private getOwnerFolderName(owner: any): string {
+    const key = String(owner?.key || owner?.id || 'item')
+    const title = typeof owner?.getDisplayTitle === 'function'
+      ? owner.getDisplayTitle()
+      : owner?.getField?.('title') || ''
+    const safeTitle = sanitize_filename(String(title || '')) || 'item'
+    return sanitize_filename(`${key}-${safeTitle}`) || key
+  }
+
+  private async ensureUniquePath(initialPath: string): Promise<string> {
+    let candidate = initialPath
+    if (!(await OS.File.exists(candidate))) return candidate
+
+    const dir = OS.Path.dirname(initialPath)
+    const baseName = OS.Path.basename(initialPath)
+    const baseNameWithoutExtension = baseName.replace(/([^.])\.[^.]+$/, '$1')
+    const ext = baseName.substring(baseNameWithoutExtension.length)
+    let postfix = 1
+
+    while (await OS.File.exists(candidate)) {
+      candidate = OS.Path.join(dir, `${baseNameWithoutExtension}-${postfix}${ext}`)
+      postfix += 1
+    }
+
+    return candidate
+  }
+
+  private noteHTMLToText(noteHTML: string): string {
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(noteHTML, 'text/html')
+    return (doc.body?.textContent || '').replace(/\r\n/g, '\n')
+  }
+
+  private async noteToMarkdown(note: any): Promise<string> {
+    const translatorID = String(Zotero.Translators.TRANSLATOR_ID_NOTE_MARKDOWN || '')
+    if (!translatorID) return this.noteHTMLToText(String(note.getNote() || ''))
+    const markdown = await translate([note], translatorID, {})
+    return markdown.replace(/\r\n/g, '\n')
   }
 
   private async copyToClipboard(translatorID: string) {

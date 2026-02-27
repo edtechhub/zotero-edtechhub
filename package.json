@@ -1,13 +1,15 @@
 {
   "name": "zotero-edtechhub",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "description": "EdTech hub companion plugin for Zotero",
   "scripts": {
     "lint": "eslint . --ext .ts --cache --cache-location .eslintcache/",
-    "prebuild": "npm run lint",
+    "sync:manifest-version": "node scripts/sync-manifest-version.cjs",
+    "prebuild": "npm run sync:manifest-version && npm run lint",
     "build": "node esbuild.js && tsc --noEmit",
     "postbuild": "zp-zipup build zotero-edtechhub",
     "release": "zp-release",
+    "version": "npm run sync:manifest-version && git add manifest.json package.json package-lock.json",
     "postversion": "git push --follow-tags",
     "start": "zotero-start",
     "beta": "zotero-start --beta"

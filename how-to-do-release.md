@@ -13,3 +13,5 @@ Patch
 ```
 npm version patch
 ```
+
+`npm version` now automatically syncs `manifest.json` version from `package.json`.
