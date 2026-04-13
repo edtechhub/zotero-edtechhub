@@ -1,6 +1,6 @@
 {
   "name": "zotero-edtechhub",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "EdTech hub companion plugin for Zotero",
   "scripts": {
     "lint": "eslint . --ext .ts --cache --cache-location .eslintcache/",
@@ -43,8 +43,8 @@
     "releaseURL": "https://github.com/edtechhub/zotero-edtechhub/releases/download/release/",
     "iconURL": "content/skin/edtechhub.png",
     "bootstrapped": true,
-    "minVersion": "7.0",
-    "maxVersion": "8.*"
+    "minVersion": "8.0.1",
+    "maxVersion": "9.*"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.18.0",

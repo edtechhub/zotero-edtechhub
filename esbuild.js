@@ -84,12 +84,21 @@ async function bundle(config) {
 
 async function build() {
 
-  await bundle({
-    exportGlobals: true,
-    entryPoints: [ 'bootstrap.ts' ],
-    outdir: 'build',
-    banner: { js: 'var Zotero;\n' },
+  // bootstrap.ts is transpiled (not bundled) so each `export function` becomes
+  // a top-level function declaration in the sandbox's global scope. Zotero 9's
+  // plugin loader looks up bootstrap methods via `scope[method]`, which only
+  // resolves top-level `function`/`var` declarations — not vars bound inside
+  // an IIFE wrapper.
+  const bootstrapSrc = await fs.promises.readFile('bootstrap.ts', 'utf-8')
+  const bootstrapOut = await esbuild.transform(bootstrapSrc, {
+    loader: 'ts',
+    target: 'firefox115',
+    sourcefile: 'bootstrap.ts',
   })
+  const bootstrapCode = 'var Zotero, Services, Components;\n' + bootstrapOut.code.replace(/^export /gm, '')
+  await fs.promises.mkdir('build', { recursive: true })
+  await fs.promises.writeFile('build/bootstrap.js', bootstrapCode)
+  console.log('* transpiled build/bootstrap.js')
 
   await bundle({
     entryPoints: [ 'lib.ts' ],

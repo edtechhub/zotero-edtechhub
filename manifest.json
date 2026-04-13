@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "EdTechHub for Zotero",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "EdTech hub companion plugin for Zotero",
   "icons": {
     "48": "content/skin/edtechhub.png",
@@ -11,8 +11,8 @@
     "zotero": {
       "id": "edtechhub@edtechhub.org",
       "update_url": "https://github.com/edtechhub/zotero-edtechhub/releases/download/release/updates.json",
-      "strict_min_version": "7.0",
-      "strict_max_version": "8.*"
+      "strict_min_version": "8.0.1",
+      "strict_max_version": "9.*"
     }
   }
 }

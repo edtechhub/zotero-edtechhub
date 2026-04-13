@@ -26,7 +26,7 @@ var EdTechHub: EdTechHubMain // eslint-disable-line no-var
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { DebugLog: DebugLogSender } = require('zotero-plugin/debug-log')
-import { patch as $patch$, unpatch as $unpatch$ } from './monkey-patch'
+import { unpatch as $unpatch$ } from './monkey-patch'
 
 import sanitize_filename = require('sanitize-filename')
 const { FilePicker } = ChromeUtils.importESModule('chrome://zotero/content/modules/filePicker.mjs')
@@ -342,8 +342,121 @@ class EdTechHubMain {
       layoutMode: 'per-item',
     }
 
+  patchDuplicatesMergePane(win: Window) {
+    const registry = (win as any).customElements
+    if (!registry) {
+      debug('merge-patch: no customElements registry')
+      return
+    }
+    registry.whenDefined('duplicates-merge-pane').then(() => {
+      const cls = registry.get('duplicates-merge-pane')
+      if (!cls?.prototype?.merge) {
+        debug('merge-patch: DuplicatesMergePane.prototype.merge missing')
+        return
+      }
+      if (cls.prototype.edtechhubMergePatched) {
+        debug('merge-patch: already patched')
+        return
+      }
+      cls.prototype.edtechhubMergePatched = true
+
+      const originalMerge = cls.prototype.merge
+      cls.prototype.merge = async function edtechhubMerge() {
+        const item = this._masterItem
+        const otherItems: any[] = this._otherItems || []
+
+        let alsoKnownAs: AlsoKnownAs = null
+        let history: string = null
+
+        try {
+          alsoKnownAs = EdTechHub.getAlsoKnownAs(item)
+          // preserve AlsoKnownAs of all merged items
+          getRelations(item, alsoKnownAs)
+          for (const otherItem of otherItems) {
+            for (const id of EdTechHub.getAlsoKnownAs(otherItem)) {
+              alsoKnownAs.add(id)
+            }
+            getRelations(otherItem, alsoKnownAs)
+          }
+          debug(`merge-alsoKnownAs: post alsoKnownAs = ${alsoKnownAs.toString()} = ${item.getField('extra')}`)
+
+          // keep RIS copy of all merged items
+          const ris = await asRIS([item, ...otherItems])
+
+          let user = Zotero.Prefs.get('sync.server.username')
+          user = user ? `${user}, ` : ''
+
+          history = `<div><b>Item history (${user}${new Date})</b></div>\n`
+          history += `<pre>${Zotero.Utilities.text2html(ris)}</pre>\n`
+          history += '<div>\n'
+          history += `<p>group: ${libraryKey(item)}</p>\n`
+          history += `<p>itemKey: ${item.key}</p>\n`
+          history += `<p>itemKeyOld: ${otherItems.map((i: { key: string }) => i.key).join(', ')}</p>\n`
+          history += '</div>\n'
+          // Add 'extra' to history - https://github.com/edtechhub/zotero-edtechhub/issues/60
+          history += '<div>\n'
+          const itemExtra = item.getField('extra')
+          const itemExtraOld = otherItems.map((i: { getField: (f: string) => string }) => i.getField('extra')).join('<br>itemOLD.extra:')
+          history += `<p>item.extra: ${itemExtra}</p>\n`
+          history += `<p>itemOLD.extra: ${itemExtraOld}</p>\n`
+          history += '</div>\n'
+        }
+        catch (err) {
+          debug('merge-alsoKnownAs: error=', err)
+        }
+
+        debug('merge-alsoKnownAs: merging...')
+
+        // Force-keep every PDF: Zotero's mergeItems dedupes attachments via a
+        // top-50-words text fingerprint (mergeItems.mjs hashAttachmentText) that
+        // produces false positives and silently trashes distinct PDFs. Reparenting
+        // otherItems' PDFs onto the master beforehand leaves mergeItems' PDF loop
+        // with nothing to dedup. See edtechhub/zotero-edtechhub#89.
+        if (otherItems.length) {
+          await Zotero.DB.executeTransaction(async () => {
+            for (const otherItem of otherItems) {
+              for (const att of await Zotero.Items.getAsync(otherItem.getAttachments(true))) {
+                if (att.isPDFAttachment()) {
+                  att.parentItemID = item.id
+                  await att.save()
+                }
+              }
+            }
+          })
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const merged = await originalMerge.call(this)
+
+        try {
+          if (alsoKnownAs?.changed()) {
+            EdTechHub.setAlsoKnownAs(item, alsoKnownAs)
+            await item.saveTx()
+          }
+          if (history) {
+            const note = new Zotero.Item('note')
+            note.libraryID = item.libraryID
+            note.setNote(history)
+            note.parentKey = item.key
+            await note.saveTx()
+            debug('merge-alsoKnownAs: note saved')
+          }
+        }
+        catch (err) {
+          debug('merge-alsoKnownAs: error=', err)
+        }
+
+        return merged // eslint-disable-line @typescript-eslint/no-unsafe-return
+      }
+      debug('merge-patch: DuplicatesMergePane.prototype.merge patched')
+    }).catch((err: any) => {
+      debug('merge-patch: whenDefined failed:', err)
+    })
+  }
+
   ui(win : Window) {
     debug('building UI')
+    this.patchDuplicatesMergePane(win)
     const doc = win.document
 
     const NAMESPACE = {
@@ -536,83 +649,9 @@ class EdTechHubMain {
       extra: Zotero.ItemFields.getID('extra'),
     }
 
-    $patch$(Zotero.Items, '_mergePDFAttachments', _original => async function(item, otherItems) {
-      Zotero.DB.requireTransaction()
-      for (const otherItem of otherItems) {
-        for (const otherAttachment of await this.getAsync(otherItem.getAttachments(true))) {
-          if (otherAttachment.isPDFAttachment()) {
-            otherAttachment.parentItemID = item.id
-            await otherAttachment.save()
-          }
-        }
-      }
-      return new Map
-    })
-
-    $patch$(Zotero.Items, 'merge', original => async function(item, otherItems) {
-      let alsoKnownAs: AlsoKnownAs = null
-      let history: string = null
-
-      try {
-        alsoKnownAs = EdTechHub.getAlsoKnownAs(item)
-        // preserve AlsoKnownAs of all merged items
-        getRelations(item, alsoKnownAs)
-        for (const otherItem of otherItems) {
-          for (const id of EdTechHub.getAlsoKnownAs(otherItem)) {
-            alsoKnownAs.add(id)
-          }
-          getRelations(otherItem, alsoKnownAs)
-        }
-        debug(`merge-alsoKnownAs: post alsoKnownAs = ${alsoKnownAs.toString()} = ${item.getField('extra')}`)
-
-        // keep RIS copy of all merged items
-        const ris = await asRIS([item, ...otherItems])
-
-        let user = Zotero.Prefs.get('sync.server.username')
-        user = user ? `${user}, ` : ''
-
-        history = `<div><b>Item history (${user}${new Date})</b></div>\n`
-        history += `<pre>${Zotero.Utilities.text2html(ris)}</pre>\n`
-        history += '<div>\n'
-        history += `<p>group: ${libraryKey(item)}</p>\n`
-        history += `<p>itemKey: ${item.key}</p>\n`
-        history += `<p>itemKeyOld: ${otherItems.map((i: { key: string }) => i.key).join(', ')}</p>\n`
-        history += '</div>\n'
-        // Add 'extra' to history - https://github.com/edtechhub/zotero-edtechhub/issues/60
-        history += '<div>\n'
-        const itemExtra = item.getField('extra')
-        const itemExtraOld = otherItems.map(i => i.getField('extra') as string).join('<br>itemOLD.extra:')
-        history += `<p>item.extra: ${itemExtra}</p>\n`
-        history += `<p>itemOLD.extra: ${itemExtraOld}</p>\n`
-        history += '</div>\n'
-      }
-      catch (err) {
-        debug('merge-alsoKnownAs: error=', err)
-      }
-
-      debug('merge-alsoKnownAs: merging...')
-      const merged = await original.apply(this, arguments) // eslint-disable-line prefer-rest-params
-
-      try {
-        if (alsoKnownAs?.changed()) {
-          EdTechHub.setAlsoKnownAs(item, alsoKnownAs)
-          await item.saveTx()
-        }
-        if (history) {
-          const note = new Zotero.Item('note')
-          note.libraryID = item.libraryID
-          note.setNote(history)
-          note.parentKey = item.key
-          await note.saveTx()
-          debug('merge-alsoKnownAs: note saved')
-        }
-      }
-      catch (err) {
-        debug('merge-alsoKnownAs: error=', err)
-      }
-
-      return merged // eslint-disable-line @typescript-eslint/no-unsafe-return
-    })
+    // Merge interception moved to per-window patchDuplicatesMergePane() below.
+    // Zotero 9 duplicates UI imports mergeItems directly from mergeItems.mjs and
+    // bypasses the deprecated Zotero.Items.merge shim entirely.
 
     /*
     const checks = {
