@@ -34,7 +34,7 @@ export async function startup({ id, version, resourceURI, rootURI = resourceURI.
 
     log('loading lib')
     Services.scriptloader.loadSubScript(`${rootURI}lib.js`, { Zotero })
-    Zotero.EdTechHub.startup()
+    await Zotero.EdTechHub.startup()
     log('Started')
   }
   catch (err) {

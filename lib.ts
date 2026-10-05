@@ -24,8 +24,7 @@ Services.wm.addListener({
 
 var EdTechHub: EdTechHubMain // eslint-disable-line no-var
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { DebugLog: DebugLogSender } = require('zotero-plugin/debug-log')
+import { DebugLogSender } from 'zotero-plugin/debug-log'
 import { unpatch as $unpatch$ } from './monkey-patch'
 
 import sanitize_filename = require('sanitize-filename')
@@ -256,14 +255,22 @@ function zotero_itemmenu_popupshowing() {
   doc.getElementById('edtechhub-download-selected').hidden = !hasDownloadableSelection
 }
 
+type SelectedCollection = { key: string, libraryID: number }
+
+function getSelectedCollections(): SelectedCollection[] {
+  const pane = Zotero.getActiveZoteroPane()
+  if (typeof pane.getSelectedCollections === 'function') return pane.getSelectedCollections() as SelectedCollection[]
+
+  const collection = pane.getSelectedCollection() as SelectedCollection | undefined
+  return collection ? [collection] : []
+}
+
 function zotero_collectionmenu_popupshowing() {
   if (!Zotero.EdTechHub) return
 
-  const zoteroPane = Zotero.getActiveZoteroPane()
-  const collection = zoteroPane.getSelectedCollection()
   const doc = Zotero.getMainWindow().document
 
-  const hide = !collection
+  const hide = getSelectedCollections().length === 0
   for (const elt of Array.from(doc.getElementsByClassName('edtechhub-zotero-collectionmenu') as HTMLElement[])) {
     elt.hidden = hide
   }
@@ -630,14 +637,14 @@ class EdTechHubMain {
 
     const progressWin = new Zotero.ProgressWindow({ closeOnClick: false })
     progressWin.changeHeadline('EdTech hub: waiting for Zotero')
-    const icon = `chrome://zotero/skin/treesource-unfiled${Zotero.hiDPI ? '@2x' : ''}.png`
-    const progress = new progressWin.ItemProgress(icon, 'Waiting for Zotero.Schema.schemaUpdatePromise, please be patient')
+    const progress = new progressWin.ItemProgress('document', 'Waiting for Zotero.Schema.schemaUpdatePromise, please be patient')
     progressWin.show()
     await Zotero.Schema.schemaUpdatePromise
     progress.setText('Ready')
     progressWin.startCloseTimer(500) // eslint-disable-line @typescript-eslint/no-magic-numbers
 
-    DebugLogSender.register('EdTechHub', [])
+    const debugLogSender = new DebugLogSender('edtechhub@edtechhub.org', 'Send EdTech hub debug log')
+    debugLogSender.enabled = true
 
     this.dir = OS.Path.join(Zotero.DataDirectory.dir, 'edtechhub')
     await OS.File.makeDir(this.dir, { ignoreExisting: true })
@@ -1428,45 +1435,28 @@ class EdTechHubMain {
   }
 
   public copySelectCollectionLink() {
-    const zoteroPane = Zotero.getActiveZoteroPane()
-    const collection = zoteroPane.getSelectedCollection()
-    debug(`copySelectCollectionLink: collection = ${collection ? collection.key : 'null'}`)
-    if (!collection) return
-
-    const libraryID = collection.libraryID
-    const library = Zotero.Libraries.get(libraryID)
-    const libraryType = library.libraryType
-    debug(`copySelectCollectionLink: libraryType = ${libraryType}`)
-
-    let link = ''
-    if (libraryType === 'user') {
-      link = `zotero://select/library/collections/${String(collection.key)}`
-    }
-    else if (libraryType === 'group') {
-      const groupID = Zotero.Groups.getGroupIDFromLibraryID(libraryID)
-      link = `zotero://select/groups/${groupID}/collections/${String(collection.key)}`
+    const links: string[] = []
+    for (const collection of getSelectedCollections()) {
+      const library = Zotero.Libraries.get(collection.libraryID)
+      if (library.libraryType === 'user') {
+        links.push(`zotero://select/library/collections/${String(collection.key)}`)
+      }
+      else if (library.libraryType === 'group') {
+        const groupID = Zotero.Groups.getGroupIDFromLibraryID(collection.libraryID)
+        links.push(`zotero://select/groups/${groupID}/collections/${String(collection.key)}`)
+      }
     }
 
-    if (link) {
-      debug(`copySelectCollectionLink: copying to clipboard: ${link}`)
-      toClipboard(link)
-      flash('Collection select link copied to clipboard')
-    }
-    else {
-      debug('copySelectCollectionLink: no link generated')
-    }
+    if (!links.length) return
+    toClipboard(links.join('\n'))
+    flash(links.length === 1 ? 'Collection select link copied to clipboard' : `${links.length} collection select links copied to clipboard`)
   }
 
   public copyCollectionZoteroURI() {
-    const zoteroPane = Zotero.getActiveZoteroPane()
-    const collection = zoteroPane.getSelectedCollection()
-    debug(`copyCollectionZoteroURI: collection = ${collection ? collection.key : 'null'}`)
-    if (!collection) return
-
-    const uri = Zotero.URI.getCollectionURI(collection)
-    debug(`copyCollectionZoteroURI: copying to clipboard: ${uri}`)
-    toClipboard(uri)
-    flash('Collection URI copied to clipboard')
+    const uris = getSelectedCollections().map(collection => String(Zotero.URI.getCollectionURI(collection)))
+    if (!uris.length) return
+    toClipboard(uris.join('\n'))
+    flash(uris.length === 1 ? 'Collection URI copied to clipboard' : `${uris.length} collection URIs copied to clipboard`)
   }
 
   private async installTranslator(name) {
